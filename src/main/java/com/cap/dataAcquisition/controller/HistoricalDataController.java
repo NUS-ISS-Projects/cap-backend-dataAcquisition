@@ -5,15 +5,18 @@ import com.cap.dataAcquisition.model.FireEventRecord;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
 import com.cap.dataAcquisition.repository.FireEventRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/data-acquisition")
+@RequestMapping("/api/acquisition")
 public class HistoricalDataController {
 
     @Autowired
@@ -40,5 +43,11 @@ public class HistoricalDataController {
             return fireEventRepository.findByTimestampBetween(startTime, endTime);
         }
         return fireEventRepository.findAll();
+    }
+
+    @GetMapping("/health")
+    public ResponseEntity<String> healthCheck() {
+        String podName = System.getenv("HOSTNAME");
+        return ResponseEntity.ok("Data acquisition service is up and running on pod: " + podName);
     }
 }
