@@ -41,8 +41,7 @@ public class RealTimeMetricsService {
     }
 
     private RealTimeMetrics createFallbackMetrics(String errorMessage) {
-        // You can decide how to handle errors, e.g., return empty/default metrics or throw
         log.warn("Falling back to default metrics. Error: {}", errorMessage);
-        return new RealTimeMetrics(0L, 0L); // Default/empty metrics
+        return new RealTimeMetrics(0L, 0L, 0.0); // Adjusted for new DTO
     }
 }

@@ -8,7 +8,8 @@ import lombok.AllArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RealTimeMetrics {
-    private long lastPduReceivedTimestamp;
-    private long pduCountLastProcessingCycle;
-    // Ensure fields match exactly with the DTO in DataIngestionService
+    private long lastPduReceivedTimestampMs;
+    private long pdusInLastSixtySeconds;
+    private double averagePduRatePerSecondLastSixtySeconds;
+    // Ensure this structure matches the DTO in DataIngestionService
 }
