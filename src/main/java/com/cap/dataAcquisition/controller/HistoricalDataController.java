@@ -2,8 +2,10 @@ package com.cap.dataAcquisition.controller;
 
 import com.cap.dataAcquisition.model.EntityStateRecord;
 import com.cap.dataAcquisition.model.FireEventRecord;
+import com.cap.dataAcquisition.model.RealTimeMetrics;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
 import com.cap.dataAcquisition.repository.FireEventRepository;
+import com.cap.dataAcquisition.service.RealTimeMetricsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,9 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/acquisition")
@@ -21,9 +21,11 @@ public class HistoricalDataController {
 
     @Autowired
     private EntityStateRepository entityStateRepository;
-
     @Autowired
     private FireEventRepository fireEventRepository;
+
+    @Autowired
+    private RealTimeMetricsService realTimeMetricsService;
 
     @GetMapping("/entity-states")
     public List<EntityStateRecord> getEntityStates(
@@ -49,5 +51,11 @@ public class HistoricalDataController {
     public ResponseEntity<String> healthCheck() {
         String podName = System.getenv("HOSTNAME");
         return ResponseEntity.ok("Data acquisition service is up and running on pod: " + podName);
+    }
+
+    @GetMapping("/realtime")
+    public ResponseEntity<RealTimeMetrics> getRealTimeDisMetrics() {
+        RealTimeMetrics metrics = realTimeMetricsService.getLatestMetrics();
+        return ResponseEntity.ok(metrics);
     }
 }
