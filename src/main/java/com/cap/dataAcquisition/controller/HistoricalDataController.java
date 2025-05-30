@@ -2,13 +2,14 @@ package com.cap.dataAcquisition.controller;
 
 import com.cap.dataAcquisition.model.EntityStateRecord;
 import com.cap.dataAcquisition.model.FireEventRecord;
-import com.cap.dataAcquisition.model.RealTimeMetrics; // Assuming this is still needed
-import com.cap.dataAcquisition.model.AggregationResult; // New DTO
-import com.cap.dataAcquisition.model.MonthlyAggregation; // New DTO
-import com.cap.dataAcquisition.model.CustomRangeAggregation; // New DTO
+import com.cap.dataAcquisition.model.RealTimeMetrics;
+import com.cap.dataAcquisition.model.MonthlyAggregation;
+import com.cap.dataAcquisition.model.CustomRangeAggregation;
+import com.cap.dataAcquisition.model.AggregatedMetricsOverview;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
 import com.cap.dataAcquisition.repository.FireEventRepository;
-import com.cap.dataAcquisition.service.RealTimeMetricsService; // Assuming this is still needed
+import com.cap.dataAcquisition.service.MetricsService; // Import the new service
+import com.cap.dataAcquisition.service.RealTimeMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,8 +20,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.*; // For date-time manipulation
-import java.time.format.DateTimeFormatter;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId; // Keep ZoneId if used by original methods
 import java.util.List;
 
 @RestController
@@ -29,34 +33,21 @@ public class HistoricalDataController {
 
     private static final Logger log = LoggerFactory.getLogger(HistoricalDataController.class);
 
+    private final EntityStateRepository entityStateRepository;
+    private final FireEventRepository fireEventRepository;
+    private final RealTimeMetricsService realTimeMetricsService;
+    private final MetricsService metricsService; // Inject new service
+
     @Autowired
-    private EntityStateRepository entityStateRepository;
-    @Autowired
-    private FireEventRepository fireEventRepository;
-    
-    // Assuming RealTimeMetricsService is for a different endpoint and still needed.
-    // If you provided the dataAcquisition.txt without it, you can remove this.
-    @Autowired(required = false) // Make it optional if it's not in all versions of your file
-    private RealTimeMetricsService realTimeMetricsService;
-
-    // Helper to convert epoch seconds to DIS Absolute Timestamp
-    private long toDisAbsoluteTimestamp(long epochSeconds) {
-        return epochSeconds | 0x80000000L;
+    public HistoricalDataController(EntityStateRepository entityStateRepository,
+                                    FireEventRepository fireEventRepository,
+                                    @Autowired(required = false) RealTimeMetricsService realTimeMetricsService,
+                                    MetricsService metricsService) {
+        this.entityStateRepository = entityStateRepository;
+        this.fireEventRepository = fireEventRepository;
+        this.realTimeMetricsService = realTimeMetricsService;
+        this.metricsService = metricsService;
     }
-
-    // Helper to decode DIS Absolute Timestamp to epoch seconds
-    private long fromDisAbsoluteTimestamp(long disTimestamp) {
-        if ((disTimestamp & 0x80000000L) != 0) {
-            return disTimestamp & 0x7FFFFFFFL;
-        }
-        // Handle or log if it's not an absolute timestamp or is zero
-        return disTimestamp; // Or throw an error, or return a specific value for non-absolute
-    }
-    
-    private String formatInstant(Instant instant) {
-        return DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.of("UTC")).format(instant);
-    }
-
 
     @GetMapping("/entity-states")
     public List<EntityStateRecord> getEntityStates(
@@ -64,9 +55,9 @@ public class HistoricalDataController {
             @RequestParam(required = false) Long endTime) { // Expecting DIS Absolute Timestamp
         List<EntityStateRecord> records;
         if (startTime != null && endTime != null) {
-            log.info("Fetching entity states between DIS TS: {} ({}) and {} ({})", 
-                startTime, formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(startTime))), 
-                endTime, formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(endTime))));
+            log.info("Fetching entity states between DIS TS: {} ({}) and {} ({})",
+                startTime, MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(startTime))),
+                endTime, MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(endTime))));
             records = entityStateRepository.findByTimestampBetween(startTime, endTime);
         } else {
             log.info("Fetching all entity states.");
@@ -76,7 +67,7 @@ public class HistoricalDataController {
             log.info("Returning {} entity state records. First record raw DIS timestamp: {}, Decoded: {}",
                     records.size(),
                     records.get(0).getTimestamp(),
-                    formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(records.get(0).getTimestamp()))));
+                    MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(records.get(0).getTimestamp()))));
         }
         return records;
     }
@@ -87,9 +78,9 @@ public class HistoricalDataController {
             @RequestParam(required = false) Long endTime) { // Expecting DIS Absolute Timestamp
         List<FireEventRecord> records;
         if (startTime != null && endTime != null) {
-             log.info("Fetching fire events between DIS TS: {} ({}) and {} ({})", 
-                startTime, formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(startTime))), 
-                endTime, formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(endTime))));
+             log.info("Fetching fire events between DIS TS: {} ({}) and {} ({})",
+                startTime, MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(startTime))),
+                endTime, MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(endTime))));
             records = fireEventRepository.findByTimestampBetween(startTime, endTime);
         } else {
             log.info("Fetching all fire events.");
@@ -99,7 +90,7 @@ public class HistoricalDataController {
             log.info("Returning {} fire event records. First record raw DIS timestamp: {}, Decoded: {}",
                     records.size(),
                     records.get(0).getTimestamp(),
-                    formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(records.get(0).getTimestamp()))));
+                    MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(records.get(0).getTimestamp()))));
         }
         return records;
     }
@@ -110,7 +101,6 @@ public class HistoricalDataController {
         return ResponseEntity.ok("Data acquisition service is up and running on pod: " + podName);
     }
 
-    // Only include if RealTimeMetricsService is configured and intended
     @GetMapping("/realtime")
     public ResponseEntity<RealTimeMetrics> getRealTimeDisMetrics() {
         if (realTimeMetricsService == null) {
@@ -120,12 +110,10 @@ public class HistoricalDataController {
         RealTimeMetrics metrics = realTimeMetricsService.getLatestMetrics();
         if (metrics != null && metrics.getLastPduReceivedTimestampMs() > 0) {
             Instant instant = Instant.ofEpochMilli(metrics.getLastPduReceivedTimestampMs());
-            log.debug("Realtime metrics: LastPduReceived at {}", formatInstant(instant));
+            log.debug("Realtime metrics: LastPduReceived at {}", MetricsService.formatInstant(instant));
         }
         return ResponseEntity.ok(metrics);
     }
-
-    // --- NEW ENDPOINTS ---
 
     @GetMapping("/monthly")
     public ResponseEntity<MonthlyAggregation> getMonthlyAggregatedData(
@@ -133,21 +121,20 @@ public class HistoricalDataController {
             @RequestParam int month) {
 
         if (month < 1 || month > 12) {
-            return ResponseEntity.badRequest().body(null); // Or a proper error DTO
+            return ResponseEntity.badRequest().body(null);
         }
 
         LocalDateTime startOfMonth = LocalDateTime.of(year, month, 1, 0, 0, 0);
-        LocalDateTime endOfMonth = startOfMonth.plusMonths(1).minusNanos(1); // End of the last day of the month
+        LocalDateTime endOfMonth = startOfMonth.plusMonths(1).minusNanos(1);
 
         long startEpochSeconds = startOfMonth.atZone(ZoneId.of("UTC")).toEpochSecond();
         long endEpochSeconds = endOfMonth.atZone(ZoneId.of("UTC")).toEpochSecond();
 
-        long disStartTime = toDisAbsoluteTimestamp(startEpochSeconds);
-        long disEndTime = toDisAbsoluteTimestamp(endEpochSeconds);
+        long disStartTime = MetricsService.toDisAbsoluteTimestamp(startEpochSeconds);
+        long disEndTime = MetricsService.toDisAbsoluteTimestamp(endEpochSeconds);
 
         log.info("Fetching monthly aggregation for Year: {}, Month: {} (DIS TS Range: {} to {})", year, month, disStartTime, disEndTime);
-        log.info("Corresponding UTC Range: {} to {}", formatInstant(Instant.ofEpochSecond(startEpochSeconds)), formatInstant(Instant.ofEpochSecond(endEpochSeconds)));
-
+        log.info("Corresponding UTC Range: {} to {}", MetricsService.formatInstant(Instant.ofEpochSecond(startEpochSeconds)), MetricsService.formatInstant(Instant.ofEpochSecond(endEpochSeconds)));
 
         List<EntityStateRecord> entityStates = entityStateRepository.findByTimestampBetween(disStartTime, disEndTime);
         List<FireEventRecord> fireEvents = fireEventRepository.findByTimestampBetween(disStartTime, disEndTime);
@@ -166,17 +153,17 @@ public class HistoricalDataController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
-        LocalDateTime startDateTime = startDate.atStartOfDay(); // Start of the start_date
-        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);   // End of the end_date
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
         long startEpochSeconds = startDateTime.atZone(ZoneId.of("UTC")).toEpochSecond();
         long endEpochSeconds = endDateTime.atZone(ZoneId.of("UTC")).toEpochSecond();
-        
-        long disStartTime = toDisAbsoluteTimestamp(startEpochSeconds);
-        long disEndTime = toDisAbsoluteTimestamp(endEpochSeconds);
+
+        long disStartTime = MetricsService.toDisAbsoluteTimestamp(startEpochSeconds);
+        long disEndTime = MetricsService.toDisAbsoluteTimestamp(endEpochSeconds);
 
         log.info("Fetching custom range aggregation for Start: {}, End: {} (DIS TS Range: {} to {})", startDate, endDate, disStartTime, disEndTime);
-        log.info("Corresponding UTC Range: {} to {}", formatInstant(Instant.ofEpochSecond(startEpochSeconds)), formatInstant(Instant.ofEpochSecond(endEpochSeconds)));
+        log.info("Corresponding UTC Range: {} to {}", MetricsService.formatInstant(Instant.ofEpochSecond(startEpochSeconds)), MetricsService.formatInstant(Instant.ofEpochSecond(endEpochSeconds)));
 
         List<EntityStateRecord> entityStates = entityStateRepository.findByTimestampBetween(disStartTime, disEndTime);
         List<FireEventRecord> fireEvents = fireEventRepository.findByTimestampBetween(disStartTime, disEndTime);
@@ -188,5 +175,14 @@ public class HistoricalDataController {
                 fireEvents != null ? fireEvents.size() : 0
         );
         return ResponseEntity.ok(result);
+    }
+
+    // --- NEW METRICS ENDPOINT using MetricsService ---
+    @GetMapping("/metrics")
+    public ResponseEntity<AggregatedMetricsOverview> getAggregatedMetricsOverview(
+            @RequestParam(required = false, defaultValue = "last60minutes") String period) {
+        
+        AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics(period);
+        return ResponseEntity.ok(overview);
     }
 }
