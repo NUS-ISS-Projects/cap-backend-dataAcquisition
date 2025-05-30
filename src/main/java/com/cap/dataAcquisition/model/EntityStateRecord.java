@@ -5,6 +5,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import lombok.Data;
+import jakarta.persistence.Column;
 
 @Entity
 @Data
@@ -22,5 +23,6 @@ public class EntityStateRecord {
     private double locationY;
     private double locationZ;
 
+    @Column(columnDefinition = "BIGINT")
     private long timestamp;
 }
