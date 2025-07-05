@@ -1,10 +1,26 @@
 package com.cap.dataAcquisition.service;
 
 import com.cap.dataAcquisition.model.AggregatedMetricsOverview;
+import com.cap.dataAcquisition.model.CollisionRecord;
+import com.cap.dataAcquisition.model.DetonationRecord;
 import com.cap.dataAcquisition.model.EntityStateRecord;
 import com.cap.dataAcquisition.model.FireEventRecord;
+import com.cap.dataAcquisition.model.DataPduRecord;
+import com.cap.dataAcquisition.model.ActionRequestPduRecord;
+import com.cap.dataAcquisition.model.StartResumePduRecord;
+import com.cap.dataAcquisition.model.SetDataPduRecord;
+import com.cap.dataAcquisition.model.DesignatorPduRecord;
+import com.cap.dataAcquisition.model.ElectromagneticEmissionsPduRecord;
+import com.cap.dataAcquisition.repository.CollisionRepository;
+import com.cap.dataAcquisition.repository.DetonationRepository;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
 import com.cap.dataAcquisition.repository.FireEventRepository;
+import com.cap.dataAcquisition.repository.DataPduRepository;
+import com.cap.dataAcquisition.repository.ActionRequestPduRepository;
+import com.cap.dataAcquisition.repository.StartResumePduRepository;
+import com.cap.dataAcquisition.repository.SetDataPduRepository;
+import com.cap.dataAcquisition.repository.DesignatorPduRepository;
+import com.cap.dataAcquisition.repository.ElectromagneticEmissionsPduRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,11 +43,36 @@ public class MetricsService {
 
     private final EntityStateRepository entityStateRepository;
     private final FireEventRepository fireEventRepository;
+    private final CollisionRepository collisionRepository;
+    private final DetonationRepository detonationRepository;
+    private final DataPduRepository dataPduRepository;
+    private final ActionRequestPduRepository actionRequestPduRepository;
+    private final StartResumePduRepository startResumePduRepository;
+    private final SetDataPduRepository setDataPduRepository;
+    private final DesignatorPduRepository designatorPduRepository;
+    private final ElectromagneticEmissionsPduRepository electromagneticEmissionsPduRepository;
 
     @Autowired
-    public MetricsService(EntityStateRepository entityStateRepository, FireEventRepository fireEventRepository) {
+    public MetricsService(EntityStateRepository entityStateRepository, 
+                          FireEventRepository fireEventRepository,
+                          CollisionRepository collisionRepository,
+                          DetonationRepository detonationRepository,
+                          DataPduRepository dataPduRepository,
+                          ActionRequestPduRepository actionRequestPduRepository,
+                          StartResumePduRepository startResumePduRepository,
+                          SetDataPduRepository setDataPduRepository,
+                          DesignatorPduRepository designatorPduRepository,
+                          ElectromagneticEmissionsPduRepository electromagneticEmissionsPduRepository) {
         this.entityStateRepository = entityStateRepository;
         this.fireEventRepository = fireEventRepository;
+        this.collisionRepository = collisionRepository;
+        this.detonationRepository = detonationRepository;
+        this.dataPduRepository = dataPduRepository;
+        this.actionRequestPduRepository = actionRequestPduRepository;
+        this.startResumePduRepository = startResumePduRepository;
+        this.setDataPduRepository = setDataPduRepository;
+        this.designatorPduRepository = designatorPduRepository;
+        this.electromagneticEmissionsPduRepository = electromagneticEmissionsPduRepository;
     }
 
     // --- Public Static Helper Methods for Timestamp Conversion & Formatting ---
@@ -83,16 +124,36 @@ public class MetricsService {
 
         List<EntityStateRecord> entityStates = entityStateRepository.findByTimestampBetween(disStartTime, disEndTime);
         List<FireEventRecord> fireEvents = fireEventRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<CollisionRecord> collisionEvents = collisionRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<DetonationRecord> detonationEvents = detonationRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<DataPduRecord> dataPduEvents = dataPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<ActionRequestPduRecord> actionRequestEvents = actionRequestPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<StartResumePduRecord> startResumeEvents = startResumePduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<SetDataPduRecord> setDataEvents = setDataPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<DesignatorPduRecord> designatorEvents = designatorPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsEvents = electromagneticEmissionsPduRepository.findByTimestampBetween(disStartTime, disEndTime);
 
         long totalEntityStatePackets = entityStates != null ? entityStates.size() : 0;
         long totalFireEventPackets = fireEvents != null ? fireEvents.size() : 0;
-        long totalPackets = totalEntityStatePackets + totalFireEventPackets;
+        long totalCollisionPackets = collisionEvents != null ? collisionEvents.size() : 0;
+        long totalDetonationPackets = detonationEvents != null ? detonationEvents.size() : 0;
+        long totalDataPduPackets = dataPduEvents != null ? dataPduEvents.size() : 0;
+        long totalActionRequestPackets = actionRequestEvents != null ? actionRequestEvents.size() : 0;
+        long totalStartResumePackets = startResumeEvents != null ? startResumeEvents.size() : 0;
+        long totalSetDataPackets = setDataEvents != null ? setDataEvents.size() : 0;
+        long totalDesignatorPackets = designatorEvents != null ? designatorEvents.size() : 0;
+        long totalElectromagneticEmissionsPackets = electromagneticEmissionsEvents != null ? electromagneticEmissionsEvents.size() : 0;
+        long totalPackets = totalEntityStatePackets + totalFireEventPackets + totalCollisionPackets + totalDetonationPackets + 
+                           totalDataPduPackets + totalActionRequestPackets + totalStartResumePackets + totalSetDataPackets + 
+                           totalDesignatorPackets + totalElectromagneticEmissionsPackets;
 
         double durationSeconds = ChronoUnit.SECONDS.between(startTimeUtc, endTimeUtc);
         double averagePacketsPerSecond = (durationSeconds > 0) ? (totalPackets / durationSeconds) : 0.0;
 
         AggregatedMetricsOverview.PeakLoadInfo peakLoadInfo = calculatePeakLoad(
-                entityStates, fireEvents, startTimeUtc, endTimeUtc
+                entityStates, fireEvents, collisionEvents, detonationEvents, 
+                dataPduEvents, actionRequestEvents, startResumeEvents, setDataEvents, 
+                designatorEvents, electromagneticEmissionsEvents, startTimeUtc, endTimeUtc
         );
 
         return new AggregatedMetricsOverview(
@@ -100,6 +161,16 @@ public class MetricsService {
                 startTimeUtc,
                 endTimeUtc,
                 totalPackets,
+                totalEntityStatePackets,
+                totalFireEventPackets,
+                totalCollisionPackets,
+                totalDetonationPackets,
+                totalDataPduPackets,
+                totalActionRequestPackets,
+                totalStartResumePackets,
+                totalSetDataPackets,
+                totalDesignatorPackets,
+                totalElectromagneticEmissionsPackets,
                 averagePacketsPerSecond,
                 peakLoadInfo
         );
@@ -108,6 +179,14 @@ public class MetricsService {
     private AggregatedMetricsOverview.PeakLoadInfo calculatePeakLoad(
             List<EntityStateRecord> entityStates,
             List<FireEventRecord> fireEvents,
+            List<CollisionRecord> collisionEvents,
+            List<DetonationRecord> detonationEvents,
+            List<DataPduRecord> dataPduEvents,
+            List<ActionRequestPduRecord> actionRequestEvents,
+            List<StartResumePduRecord> startResumeEvents,
+            List<SetDataPduRecord> setDataEvents,
+            List<DesignatorPduRecord> designatorEvents,
+            List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsEvents,
             Instant windowStartTimeUtc,
             Instant windowEndTimeUtc) {
 
@@ -116,8 +195,29 @@ public class MetricsService {
                 .map((EntityStateRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
         Stream<Long> fireTimestamps = (fireEvents != null ? fireEvents.stream() : Stream.<FireEventRecord>empty())
                 .map((FireEventRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
+        Stream<Long> collisionTimestamps = (collisionEvents != null ? collisionEvents.stream() : Stream.<CollisionRecord>empty())
+                .map((CollisionRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
+        Stream<Long> detonationTimestamps = (detonationEvents != null ? detonationEvents.stream() : Stream.<DetonationRecord>empty())
+                .map((DetonationRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
+        Stream<Long> dataPduTimestamps = (dataPduEvents != null ? dataPduEvents.stream() : Stream.<DataPduRecord>empty())
+                .map((DataPduRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
+        Stream<Long> actionRequestTimestamps = (actionRequestEvents != null ? actionRequestEvents.stream() : Stream.<ActionRequestPduRecord>empty())
+                .map((ActionRequestPduRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
+        Stream<Long> startResumeTimestamps = (startResumeEvents != null ? startResumeEvents.stream() : Stream.<StartResumePduRecord>empty())
+                .map((StartResumePduRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
+        Stream<Long> setDataTimestamps = (setDataEvents != null ? setDataEvents.stream() : Stream.<SetDataPduRecord>empty())
+                .map((SetDataPduRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
+        Stream<Long> designatorTimestamps = (designatorEvents != null ? designatorEvents.stream() : Stream.<DesignatorPduRecord>empty())
+                .map((DesignatorPduRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
+        Stream<Long> electromagneticEmissionsTimestamps = (electromagneticEmissionsEvents != null ? electromagneticEmissionsEvents.stream() : Stream.<ElectromagneticEmissionsPduRecord>empty())
+                .map((ElectromagneticEmissionsPduRecord record) -> fromDisAbsoluteTimestamp(record.getTimestamp()));
 
-        List<Long> allPduEpochSeconds = Stream.concat(entityTimestamps, fireTimestamps)
+        List<Long> allPduEpochSeconds = Stream.of(
+                entityTimestamps, fireTimestamps, collisionTimestamps, detonationTimestamps,
+                dataPduTimestamps, actionRequestTimestamps, startResumeTimestamps, setDataTimestamps,
+                designatorTimestamps, electromagneticEmissionsTimestamps)
+                .reduce(Stream::concat)
+                .orElseGet(Stream::empty)
                 .sorted()
                 .collect(Collectors.toList());
 

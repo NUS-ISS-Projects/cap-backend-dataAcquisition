@@ -42,6 +42,15 @@ public class RealTimeMetricsService {
 
     private RealTimeMetrics createFallbackMetrics(String errorMessage) {
         log.warn("Falling back to default metrics. Error: {}", errorMessage);
-        return new RealTimeMetrics(0L, 0L, 0.0); // Adjusted for new DTO
+        // Create fallback metrics with all fields set to 0
+        return new RealTimeMetrics(
+            0L,  // lastPduReceivedTimestampMs
+            0L,  // pdusInLastSixtySeconds
+            0.0, // averagePduRatePerSecondLastSixtySeconds
+            0L,  // entityStatePdusInLastSixtySeconds
+            0L,  // fireEventPdusInLastSixtySeconds
+            0L,  // collisionPdusInLastSixtySeconds
+            0L   // detonationPdusInLastSixtySeconds
+        );
     }
 }

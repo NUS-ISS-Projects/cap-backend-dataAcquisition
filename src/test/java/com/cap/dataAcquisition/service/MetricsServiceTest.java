@@ -1,8 +1,12 @@
 package com.cap.dataAcquisition.service;
 
 import com.cap.dataAcquisition.model.AggregatedMetricsOverview;
+import com.cap.dataAcquisition.model.CollisionRecord;
+import com.cap.dataAcquisition.model.DetonationRecord;
 import com.cap.dataAcquisition.model.EntityStateRecord;
 import com.cap.dataAcquisition.model.FireEventRecord;
+import com.cap.dataAcquisition.repository.CollisionRepository;
+import com.cap.dataAcquisition.repository.DetonationRepository;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
 import com.cap.dataAcquisition.repository.FireEventRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,17 +34,27 @@ class MetricsServiceTest {
 
     @Mock
     private FireEventRepository fireEventRepository;
+    
+    @Mock
+    private CollisionRepository collisionRepository;
+    
+    @Mock
+    private DetonationRepository detonationRepository;
 
     @InjectMocks
     private MetricsService metricsService;
 
     private List<EntityStateRecord> entityStates;
     private List<FireEventRecord> fireEvents;
+    private List<CollisionRecord> collisionEvents;
+    private List<DetonationRecord> detonationEvents;
 
     @BeforeEach
     void setUp() {
         entityStates = new ArrayList<>();
         fireEvents = new ArrayList<>();
+        collisionEvents = new ArrayList<>();
+        detonationEvents = new ArrayList<>();
     }
 
     // --- Test Static Helper Methods ---
@@ -93,6 +107,20 @@ class MetricsServiceTest {
         // Set other fields if relevant
         return fer;
     }
+    
+    private CollisionRecord createCollision(long disTimestamp) {
+        CollisionRecord cr = new CollisionRecord();
+        cr.setTimestamp(disTimestamp);
+        // Set other fields if relevant
+        return cr;
+    }
+    
+    private DetonationRecord createDetonation(long disTimestamp) {
+        DetonationRecord dr = new DetonationRecord();
+        dr.setTimestamp(disTimestamp);
+        // Set other fields if relevant
+        return dr;
+    }
 
     // --- Tests for getAggregatedMetrics and calculatePeakLoad ---
 
@@ -100,12 +128,18 @@ class MetricsServiceTest {
     void getAggregatedMetrics_last60minutes_noData() {
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList()); // [cite: 47]
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList()); // [cite: 47]
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("last60minutes"); // [cite: 39]
 
         assertEquals("Last 60 minutes", overview.getTimeWindowDescription()); // [cite: 40]
         assertEquals(0, overview.getTotalPackets()); // [cite: 48]
         assertEquals(0.0, overview.getAveragePacketsPerSecond()); // [cite: 49]
+        assertEquals(0, overview.getEntityStatePackets());
+        assertEquals(0, overview.getFireEventPackets());
+        assertEquals(0, overview.getCollisionPackets());
+        assertEquals(0, overview.getDetonationPackets());
         assertNotNull(overview.getPeakLoad());
         assertEquals(0.0, overview.getPeakLoad().getPeakPacketsPerSecond()); // [cite: 56]
         assertEquals(0, overview.getPeakLoad().getPacketsInPeakInterval()); // [cite: 56]
@@ -143,11 +177,17 @@ class MetricsServiceTest {
         // We ensure our test data (dis_ts1 to dis_ts4) will fall within this window.
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(entityStates); // [cite: 47]
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(fireEvents); // [cite: 47]
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("lastDay"); // [cite: 40]
 
         assertEquals("Last 24 hours", overview.getTimeWindowDescription()); // [cite: 41]
         assertEquals(4, overview.getTotalPackets()); // [cite: 48]
+        assertEquals(2, overview.getEntityStatePackets());
+        assertEquals(2, overview.getFireEventPackets());
+        assertEquals(0, overview.getCollisionPackets());
+        assertEquals(0, overview.getDetonationPackets());
         long durationSecondsForLastDay = 24 * 60 * 60;
         assertEquals(4.0 / durationSecondsForLastDay, overview.getAveragePacketsPerSecond(), 0.0001); // [cite: 49]
 
@@ -165,6 +205,8 @@ class MetricsServiceTest {
     void getAggregatedMetrics_unsupportedPeriod_defaultsToLast60Minutes() {
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("unsupportedPeriod"); // [cite: 43]
         assertEquals("Last 60 minutes (default)", overview.getTimeWindowDescription()); // [cite: 42]
@@ -185,6 +227,8 @@ class MetricsServiceTest {
 
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(entityStates);
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         // Requesting for "last10minutes" will default to "last60minutes" in the current MetricsService
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("last10minutes"); // Will use default [cite: 42, 43]
@@ -237,6 +281,8 @@ class MetricsServiceTest {
 
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(entityStates);
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("last60minutes");
         AggregatedMetricsOverview.PeakLoadInfo peakLoadInfo = overview.getPeakLoad();
@@ -245,5 +291,52 @@ class MetricsServiceTest {
         assertEquals(1.0/60.0, peakLoadInfo.getPeakPacketsPerSecond(), 0.00001); // [cite: 64]
         long expectedBucketStart = (packetTime / 60) * 60;
         assertEquals(Instant.ofEpochSecond(expectedBucketStart), peakLoadInfo.getPeakIntervalStartUtc()); // [cite: 63]
+    }
+    
+    @Test
+    void getAggregatedMetrics_withAllPduTypes() {
+        Instant now = Instant.now();
+        long nowEpochSeconds = now.getEpochSecond();
+        
+        // Create timestamps for different PDU types
+        long entityStateTime = nowEpochSeconds - 300; // 5 minutes ago
+        long fireEventTime = nowEpochSeconds - 240;   // 4 minutes ago
+        long collisionTime = nowEpochSeconds - 180;   // 3 minutes ago
+        long detonationTime = nowEpochSeconds - 120;  // 2 minutes ago
+        
+        // Convert to DIS Timestamps
+        long disEntityStateTime = MetricsService.toDisAbsoluteTimestamp(entityStateTime);
+        long disFireEventTime = MetricsService.toDisAbsoluteTimestamp(fireEventTime);
+        long disCollisionTime = MetricsService.toDisAbsoluteTimestamp(collisionTime);
+        long disDetonationTime = MetricsService.toDisAbsoluteTimestamp(detonationTime);
+        
+        // Add records to their respective lists
+        entityStates.add(createEntityState(disEntityStateTime));
+        fireEvents.add(createFireEvent(disFireEventTime));
+        collisionEvents.add(createCollision(disCollisionTime));
+        detonationEvents.add(createDetonation(disDetonationTime));
+        
+        // Mock repository calls
+        when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(entityStates);
+        when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(fireEvents);
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(collisionEvents);
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(detonationEvents);
+        
+        AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("last60minutes");
+        
+        // Verify counts for each PDU type
+        assertEquals(4, overview.getTotalPackets());
+        assertEquals(1, overview.getEntityStatePackets());
+        assertEquals(1, overview.getFireEventPackets());
+        assertEquals(1, overview.getCollisionPackets());
+        assertEquals(1, overview.getDetonationPackets());
+        
+        // Verify average packets per second
+        double durationSeconds = 60 * 60; // 60 minutes in seconds
+        assertEquals(4.0 / durationSeconds, overview.getAveragePacketsPerSecond(), 0.0001);
+        
+        // Verify peak load (all PDUs should be in different minutes, so peak should be 1)
+        assertEquals(1, overview.getPeakLoad().getPacketsInPeakInterval());
+        assertEquals(1.0/60.0, overview.getPeakLoad().getPeakPacketsPerSecond(), 0.00001);
     }
 }
