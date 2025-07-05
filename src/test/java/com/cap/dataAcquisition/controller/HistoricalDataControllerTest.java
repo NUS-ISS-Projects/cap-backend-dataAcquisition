@@ -5,6 +5,12 @@ import com.cap.dataAcquisition.repository.CollisionRepository;
 import com.cap.dataAcquisition.repository.DetonationRepository;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
 import com.cap.dataAcquisition.repository.FireEventRepository;
+import com.cap.dataAcquisition.repository.DataPduRepository;
+import com.cap.dataAcquisition.repository.ActionRequestPduRepository;
+import com.cap.dataAcquisition.repository.StartResumePduRepository;
+import com.cap.dataAcquisition.repository.SetDataPduRepository;
+import com.cap.dataAcquisition.repository.DesignatorPduRepository;
+import com.cap.dataAcquisition.repository.ElectromagneticEmissionsPduRepository;
 import com.cap.dataAcquisition.service.MetricsService;
 import com.cap.dataAcquisition.service.RealTimeMetricsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +49,18 @@ class HistoricalDataControllerTest {
     private CollisionRepository collisionRepository;
     @MockBean
     private DetonationRepository detonationRepository;
+    @MockBean
+    private DataPduRepository dataPduRepository;
+    @MockBean
+    private ActionRequestPduRepository actionRequestPduRepository;
+    @MockBean
+    private StartResumePduRepository startResumePduRepository;
+    @MockBean
+    private SetDataPduRepository setDataPduRepository;
+    @MockBean
+    private DesignatorPduRepository designatorPduRepository;
+    @MockBean
+    private ElectromagneticEmissionsPduRepository electromagneticEmissionsPduRepository;
     @MockBean
     private RealTimeMetricsService realTimeMetricsService; // [cite: 87]
     @MockBean

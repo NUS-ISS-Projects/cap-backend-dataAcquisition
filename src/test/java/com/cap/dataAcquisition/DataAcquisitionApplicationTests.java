@@ -2,6 +2,7 @@ package com.cap.dataAcquisition;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.boot.SpringApplication;
@@ -9,13 +10,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.web.client.RestTemplate;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 
-@SpringBootTest //
+@SpringBootTest
+@EnabledIf("com.cap.dataAcquisition.DataAcquisitionApplicationTests#isDockerAvailable")
 class DataAcquisitionApplicationTests {
 
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
@@ -23,12 +26,26 @@ class DataAcquisitionApplicationTests {
             .withUsername("test")
             .withPassword("test");
 
-    @BeforeAll //
+    @BeforeAll
     static void setup() {
-        postgres.start();
-        System.setProperty("spring.datasource.url", postgres.getJdbcUrl());
-        System.setProperty("spring.datasource.username", postgres.getUsername());
-        System.setProperty("spring.datasource.password", postgres.getPassword()); //
+        if (isDockerAvailable()) {
+            postgres.start();
+            System.setProperty("spring.datasource.url", postgres.getJdbcUrl());
+            System.setProperty("spring.datasource.username", postgres.getUsername());
+            System.setProperty("spring.datasource.password", postgres.getPassword());
+        }
+    }
+    
+    /**
+     * Helper method to check if Docker is available
+     * This is used by the @EnabledIf annotation to conditionally run tests
+     */
+    static boolean isDockerAvailable() {
+        try {
+            return DockerClientFactory.instance().isDockerAvailable();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Test
