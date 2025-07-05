@@ -1,8 +1,16 @@
 package com.cap.dataAcquisition.controller;
 
 import com.cap.dataAcquisition.model.*;
+import com.cap.dataAcquisition.repository.CollisionRepository;
+import com.cap.dataAcquisition.repository.DetonationRepository;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
 import com.cap.dataAcquisition.repository.FireEventRepository;
+import com.cap.dataAcquisition.repository.DataPduRepository;
+import com.cap.dataAcquisition.repository.ActionRequestPduRepository;
+import com.cap.dataAcquisition.repository.StartResumePduRepository;
+import com.cap.dataAcquisition.repository.SetDataPduRepository;
+import com.cap.dataAcquisition.repository.DesignatorPduRepository;
+import com.cap.dataAcquisition.repository.ElectromagneticEmissionsPduRepository;
 import com.cap.dataAcquisition.service.MetricsService;
 import com.cap.dataAcquisition.service.RealTimeMetricsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,6 +45,22 @@ class HistoricalDataControllerTest {
     private EntityStateRepository entityStateRepository; // [cite: 86]
     @MockBean
     private FireEventRepository fireEventRepository; // [cite: 86]
+    @MockBean
+    private CollisionRepository collisionRepository;
+    @MockBean
+    private DetonationRepository detonationRepository;
+    @MockBean
+    private DataPduRepository dataPduRepository;
+    @MockBean
+    private ActionRequestPduRepository actionRequestPduRepository;
+    @MockBean
+    private StartResumePduRepository startResumePduRepository;
+    @MockBean
+    private SetDataPduRepository setDataPduRepository;
+    @MockBean
+    private DesignatorPduRepository designatorPduRepository;
+    @MockBean
+    private ElectromagneticEmissionsPduRepository electromagneticEmissionsPduRepository;
     @MockBean
     private RealTimeMetricsService realTimeMetricsService; // [cite: 87]
     @MockBean
@@ -106,12 +130,24 @@ class HistoricalDataControllerTest {
 
     @Test
     void getRealTimeDisMetrics_serviceAvailable() throws Exception {
-        RealTimeMetrics metrics = new RealTimeMetrics(Instant.now().toEpochMilli(), 50L, 0.83); // [cite: 16]
-        when(realTimeMetricsService.getLatestMetrics()).thenReturn(metrics); // [cite: 103]
+        RealTimeMetrics metrics = new RealTimeMetrics(
+            Instant.now().toEpochMilli(), 
+            50L, 
+            0.83, 
+            20L, // entityStatePdusInLastSixtySeconds
+            15L, // fireEventPdusInLastSixtySeconds
+            10L, // collisionPdusInLastSixtySeconds
+            5L   // detonationPdusInLastSixtySeconds
+        );
+        when(realTimeMetricsService.getLatestMetrics()).thenReturn(metrics);
 
-        mockMvc.perform(get("/api/acquisition/realtime")) // [cite: 101]
+        mockMvc.perform(get("/api/acquisition/realtime"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.pdusInLastSixtySeconds", is(50)));
+            .andExpect(jsonPath("$.pdusInLastSixtySeconds", is(50)))
+            .andExpect(jsonPath("$.entityStatePdusInLastSixtySeconds", is(20)))
+            .andExpect(jsonPath("$.fireEventPdusInLastSixtySeconds", is(15)))
+            .andExpect(jsonPath("$.collisionPdusInLastSixtySeconds", is(10)))
+            .andExpect(jsonPath("$.detonationPdusInLastSixtySeconds", is(5)));
     }
     
     @Test
@@ -128,26 +164,35 @@ class HistoricalDataControllerTest {
         // If we want to test the explicit null check `if (realTimeMetricsService == null)`
         // We can't do that easily with @WebMvcTest if the bean is always injected.
         // However, if the service itself returns null metrics, that's testable.
-        when(realTimeMetricsService.getLatestMetrics()).thenReturn(new RealTimeMetrics(0,0,0.0)); // [cite: 102] if service itself handled it this way
+        when(realTimeMetricsService.getLatestMetrics()).thenReturn(new RealTimeMetrics(0,0,0.0,0,0,0,0)); // Return metrics with all fields set to 0
 
         mockMvc.perform(get("/api/acquisition/realtime"))
-            .andExpect(status().isOk()) // It will be OK, and body will have 0s [cite: 105]
-            .andExpect(jsonPath("$.lastPduReceivedTimestampMs", is(0)));
+            .andExpect(status().isOk()) // It will be OK, and body will have 0s
+            .andExpect(jsonPath("$.lastPduReceivedTimestampMs", is(0)))
+            .andExpect(jsonPath("$.pdusInLastSixtySeconds", is(0)))
+            .andExpect(jsonPath("$.entityStatePdusInLastSixtySeconds", is(0)))
+            .andExpect(jsonPath("$.fireEventPdusInLastSixtySeconds", is(0)))
+            .andExpect(jsonPath("$.collisionPdusInLastSixtySeconds", is(0)))
+            .andExpect(jsonPath("$.detonationPdusInLastSixtySeconds", is(0)));
     }
 
 
     @Test
     void getMonthlyAggregatedData_validRequest() throws Exception {
-        MonthlyAggregation aggregation = new MonthlyAggregation(2023, 5, 100L, 20L); // [cite: 19, 110]
+        MonthlyAggregation aggregation = new MonthlyAggregation(2023, 5, 100L, 20L, 15L, 10L); // [cite: 19, 110]
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.nCopies(100, new EntityStateRecord()));
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.nCopies(20, new FireEventRecord()));
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.nCopies(15, new CollisionRecord()));
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.nCopies(10, new DetonationRecord()));
 
         mockMvc.perform(get("/api/acquisition/monthly")
                 .param("year", "2023")
                 .param("month", "5")) // [cite: 106]
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.year", is(2023)))
-            .andExpect(jsonPath("$.entityStatePduCount", is(100)));
+            .andExpect(jsonPath("$.entityStatePduCount", is(100)))
+            .andExpect(jsonPath("$.collisionPduCount", is(15)))
+            .andExpect(jsonPath("$.detonationPduCount", is(10)));
     }
 
     @Test
@@ -161,22 +206,25 @@ class HistoricalDataControllerTest {
     @Test
     void getCustomRangeAggregatedData_validRequest() throws Exception {
         CustomRangeAggregation aggregation = new CustomRangeAggregation(
-            LocalDate.of(2023,1,1).toString(), LocalDate.of(2023,1,10).toString(), 150L, 25L); // [cite: 26, 115]
+            LocalDate.of(2023,1,1).toString(), LocalDate.of(2023,1,10).toString(), 150L, 25L, 20L, 15L); // [cite: 26, 115]
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.nCopies(150, new EntityStateRecord()));
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.nCopies(25, new FireEventRecord()));
-
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.nCopies(20, new CollisionRecord()));
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.nCopies(15, new DetonationRecord()));
 
         mockMvc.perform(get("/api/acquisition/aggregate")
                 .param("startDate", "2023-01-01")
                 .param("endDate", "2023-01-10")) // [cite: 112]
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.startDate", is("2023-01-01")))
-            .andExpect(jsonPath("$.entityStatePduCount", is(150)));
+            .andExpect(jsonPath("$.entityStatePduCount", is(150)))
+            .andExpect(jsonPath("$.collisionPduCount", is(20)))
+            .andExpect(jsonPath("$.detonationPduCount", is(15)));
     }
 
     @Test
     void getAggregatedMetricsOverview_defaultPeriod() throws Exception {
-        AggregatedMetricsOverview overview = new AggregatedMetricsOverview("Last 60 minutes", Instant.now().minusSeconds(3600), Instant.now(), 200L, 3.33, null); // [cite: 21]
+        AggregatedMetricsOverview overview = new AggregatedMetricsOverview("Last 60 minutes", Instant.now().minusSeconds(3600), Instant.now(), 200L, 150L, 30L, 10L, 10L, 3.33, null); // [cite: 21]
         when(metricsService.getAggregatedMetrics(eq("last60minutes"))).thenReturn(overview); // [cite: 117]
 
         mockMvc.perform(get("/api/acquisition/metrics")) // Defaults to last60minutes [cite: 117]
@@ -187,7 +235,7 @@ class HistoricalDataControllerTest {
 
     @Test
     void getAggregatedMetricsOverview_specificPeriod() throws Exception {
-        AggregatedMetricsOverview overview = new AggregatedMetricsOverview("Last 24 hours", Instant.now().minusSeconds(86400), Instant.now(), 5000L, 0.057, null);
+        AggregatedMetricsOverview overview = new AggregatedMetricsOverview("Last 24 hours", Instant.now().minusSeconds(86400), Instant.now(), 5000L, 3500L, 1000L, 300L, 200L, 0.057, null);
         when(metricsService.getAggregatedMetrics(eq("lastDay"))).thenReturn(overview);
 
         mockMvc.perform(get("/api/acquisition/metrics")

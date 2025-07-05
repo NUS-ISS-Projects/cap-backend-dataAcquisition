@@ -1,14 +1,30 @@
 package com.cap.dataAcquisition.controller;
 
+import com.cap.dataAcquisition.model.CollisionRecord;
+import com.cap.dataAcquisition.model.DetonationRecord;
 import com.cap.dataAcquisition.model.EntityStateRecord;
 import com.cap.dataAcquisition.model.FireEventRecord;
+import com.cap.dataAcquisition.model.DataPduRecord;
+import com.cap.dataAcquisition.model.ActionRequestPduRecord;
+import com.cap.dataAcquisition.model.StartResumePduRecord;
+import com.cap.dataAcquisition.model.SetDataPduRecord;
+import com.cap.dataAcquisition.model.DesignatorPduRecord;
+import com.cap.dataAcquisition.model.ElectromagneticEmissionsPduRecord;
 import com.cap.dataAcquisition.model.RealTimeMetrics;
 import com.cap.dataAcquisition.model.MonthlyAggregation;
 import com.cap.dataAcquisition.model.CustomRangeAggregation;
 import com.cap.dataAcquisition.model.AggregatedMetricsOverview;
+import com.cap.dataAcquisition.repository.CollisionRepository;
+import com.cap.dataAcquisition.repository.DetonationRepository;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
 import com.cap.dataAcquisition.repository.FireEventRepository;
-import com.cap.dataAcquisition.service.MetricsService; // Import the new service
+import com.cap.dataAcquisition.repository.DataPduRepository;
+import com.cap.dataAcquisition.repository.ActionRequestPduRepository;
+import com.cap.dataAcquisition.repository.StartResumePduRepository;
+import com.cap.dataAcquisition.repository.SetDataPduRepository;
+import com.cap.dataAcquisition.repository.DesignatorPduRepository;
+import com.cap.dataAcquisition.repository.ElectromagneticEmissionsPduRepository;
+import com.cap.dataAcquisition.service.MetricsService;
 import com.cap.dataAcquisition.service.RealTimeMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,16 +51,40 @@ public class HistoricalDataController {
 
     private final EntityStateRepository entityStateRepository;
     private final FireEventRepository fireEventRepository;
+    private final CollisionRepository collisionRepository;
+    private final DetonationRepository detonationRepository;
+    private final DataPduRepository dataPduRepository;
+    private final ActionRequestPduRepository actionRequestPduRepository;
+    private final StartResumePduRepository startResumePduRepository;
+    private final SetDataPduRepository setDataPduRepository;
+    private final DesignatorPduRepository designatorPduRepository;
+    private final ElectromagneticEmissionsPduRepository electromagneticEmissionsPduRepository;
     private final RealTimeMetricsService realTimeMetricsService;
-    private final MetricsService metricsService; // Inject new service
+    private final MetricsService metricsService;
 
     @Autowired
     public HistoricalDataController(EntityStateRepository entityStateRepository,
                                     FireEventRepository fireEventRepository,
+                                    CollisionRepository collisionRepository,
+                                    DetonationRepository detonationRepository,
+                                    DataPduRepository dataPduRepository,
+                                    ActionRequestPduRepository actionRequestPduRepository,
+                                    StartResumePduRepository startResumePduRepository,
+                                    SetDataPduRepository setDataPduRepository,
+                                    DesignatorPduRepository designatorPduRepository,
+                                    ElectromagneticEmissionsPduRepository electromagneticEmissionsPduRepository,
                                     @Autowired(required = false) RealTimeMetricsService realTimeMetricsService,
                                     MetricsService metricsService) {
         this.entityStateRepository = entityStateRepository;
         this.fireEventRepository = fireEventRepository;
+        this.collisionRepository = collisionRepository;
+        this.detonationRepository = detonationRepository;
+        this.dataPduRepository = dataPduRepository;
+        this.actionRequestPduRepository = actionRequestPduRepository;
+        this.startResumePduRepository = startResumePduRepository;
+        this.setDataPduRepository = setDataPduRepository;
+        this.designatorPduRepository = designatorPduRepository;
+        this.electromagneticEmissionsPduRepository = electromagneticEmissionsPduRepository;
         this.realTimeMetricsService = realTimeMetricsService;
         this.metricsService = metricsService;
     }
@@ -95,6 +135,52 @@ public class HistoricalDataController {
         return records;
     }
 
+    @GetMapping("/collision-events")
+    public List<CollisionRecord> getCollisionEvents(
+            @RequestParam(required = false) Long startTime, // Expecting DIS Absolute Timestamp
+            @RequestParam(required = false) Long endTime) { // Expecting DIS Absolute Timestamp
+        List<CollisionRecord> records;
+        if (startTime != null && endTime != null) {
+             log.info("Fetching collision events between DIS TS: {} ({}) and {} ({})",
+                startTime, MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(startTime))),
+                endTime, MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(endTime))));
+            records = collisionRepository.findByTimestampBetween(startTime, endTime);
+        } else {
+            log.info("Fetching all collision events.");
+            records = collisionRepository.findAll();
+        }
+        if (records != null && !records.isEmpty()) {
+            log.info("Returning {} collision event records. First record raw DIS timestamp: {}, Decoded: {}",
+                    records.size(),
+                    records.get(0).getTimestamp(),
+                    MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(records.get(0).getTimestamp()))));
+        }
+        return records;
+    }
+
+    @GetMapping("/detonation-events")
+    public List<DetonationRecord> getDetonationEvents(
+            @RequestParam(required = false) Long startTime, // Expecting DIS Absolute Timestamp
+            @RequestParam(required = false) Long endTime) { // Expecting DIS Absolute Timestamp
+        List<DetonationRecord> records;
+        if (startTime != null && endTime != null) {
+             log.info("Fetching detonation events between DIS TS: {} ({}) and {} ({})",
+                startTime, MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(startTime))),
+                endTime, MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(endTime))));
+            records = detonationRepository.findByTimestampBetween(startTime, endTime);
+        } else {
+            log.info("Fetching all detonation events.");
+            records = detonationRepository.findAll();
+        }
+        if (records != null && !records.isEmpty()) {
+            log.info("Returning {} detonation event records. First record raw DIS timestamp: {}, Decoded: {}",
+                    records.size(),
+                    records.get(0).getTimestamp(),
+                    MetricsService.formatInstant(Instant.ofEpochSecond(MetricsService.fromDisAbsoluteTimestamp(records.get(0).getTimestamp()))));
+        }
+        return records;
+    }
+
     @GetMapping("/health")
     public ResponseEntity<String> healthCheck() {
         String podName = System.getenv("HOSTNAME");
@@ -105,7 +191,7 @@ public class HistoricalDataController {
     public ResponseEntity<RealTimeMetrics> getRealTimeDisMetrics() {
         if (realTimeMetricsService == null) {
             log.warn("/realtime endpoint called but RealTimeMetricsService is not available.");
-            return ResponseEntity.status(503).body(new RealTimeMetrics(0,0,0.0)); // Service unavailable
+            return ResponseEntity.status(503).body(new RealTimeMetrics(0,0,0.0,0,0,0,0)); // Service unavailable
         }
         RealTimeMetrics metrics = realTimeMetricsService.getLatestMetrics();
         if (metrics != null && metrics.getLastPduReceivedTimestampMs() > 0) {
@@ -138,12 +224,28 @@ public class HistoricalDataController {
 
         List<EntityStateRecord> entityStates = entityStateRepository.findByTimestampBetween(disStartTime, disEndTime);
         List<FireEventRecord> fireEvents = fireEventRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<CollisionRecord> collisionEvents = collisionRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<DetonationRecord> detonationEvents = detonationRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<DataPduRecord> dataPduEvents = dataPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<ActionRequestPduRecord> actionRequestPduEvents = actionRequestPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<StartResumePduRecord> startResumePduEvents = startResumePduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<SetDataPduRecord> setDataPduEvents = setDataPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<DesignatorPduRecord> designatorPduEvents = designatorPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsPduEvents = electromagneticEmissionsPduRepository.findByTimestampBetween(disStartTime, disEndTime);
 
         MonthlyAggregation result = new MonthlyAggregation(
                 year,
                 month,
                 entityStates != null ? entityStates.size() : 0,
-                fireEvents != null ? fireEvents.size() : 0
+                fireEvents != null ? fireEvents.size() : 0,
+                collisionEvents != null ? collisionEvents.size() : 0,
+                detonationEvents != null ? detonationEvents.size() : 0,
+                dataPduEvents != null ? dataPduEvents.size() : 0,
+                actionRequestPduEvents != null ? actionRequestPduEvents.size() : 0,
+                startResumePduEvents != null ? startResumePduEvents.size() : 0,
+                setDataPduEvents != null ? setDataPduEvents.size() : 0,
+                designatorPduEvents != null ? designatorPduEvents.size() : 0,
+                electromagneticEmissionsPduEvents != null ? electromagneticEmissionsPduEvents.size() : 0
         );
         return ResponseEntity.ok(result);
     }
@@ -167,12 +269,28 @@ public class HistoricalDataController {
 
         List<EntityStateRecord> entityStates = entityStateRepository.findByTimestampBetween(disStartTime, disEndTime);
         List<FireEventRecord> fireEvents = fireEventRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<CollisionRecord> collisionEvents = collisionRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<DetonationRecord> detonationEvents = detonationRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<DataPduRecord> dataPduEvents = dataPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<ActionRequestPduRecord> actionRequestPduEvents = actionRequestPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<StartResumePduRecord> startResumePduEvents = startResumePduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<SetDataPduRecord> setDataPduEvents = setDataPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<DesignatorPduRecord> designatorPduEvents = designatorPduRepository.findByTimestampBetween(disStartTime, disEndTime);
+        List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsPduEvents = electromagneticEmissionsPduRepository.findByTimestampBetween(disStartTime, disEndTime);
 
         CustomRangeAggregation result = new CustomRangeAggregation(
                 startDate.toString(),
                 endDate.toString(),
                 entityStates != null ? entityStates.size() : 0,
-                fireEvents != null ? fireEvents.size() : 0
+                fireEvents != null ? fireEvents.size() : 0,
+                collisionEvents != null ? collisionEvents.size() : 0,
+                detonationEvents != null ? detonationEvents.size() : 0,
+                dataPduEvents != null ? dataPduEvents.size() : 0,
+                actionRequestPduEvents != null ? actionRequestPduEvents.size() : 0,
+                startResumePduEvents != null ? startResumePduEvents.size() : 0,
+                setDataPduEvents != null ? setDataPduEvents.size() : 0,
+                designatorPduEvents != null ? designatorPduEvents.size() : 0,
+                electromagneticEmissionsPduEvents != null ? electromagneticEmissionsPduEvents.size() : 0
         );
         return ResponseEntity.ok(result);
     }

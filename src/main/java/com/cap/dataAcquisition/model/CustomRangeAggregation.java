@@ -16,4 +16,22 @@ public class CustomRangeAggregation extends AggregationResult {
         this.startDate = startDate;
         this.endDate = endDate;
     }
+    
+    public CustomRangeAggregation(String startDate, String endDate, long entityStateCount, long fireEventCount, long collisionCount, long detonationCount) {
+        super(entityStateCount, fireEventCount, collisionCount, detonationCount);
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+    
+    public CustomRangeAggregation(String startDate, String endDate, long entityStateCount, long fireEventCount, 
+                                 long collisionCount, long detonationCount,
+                                 long dataPduCount, long actionRequestPduCount,
+                                 long startResumePduCount, long setDataPduCount,
+                                 long designatorPduCount, long electromagneticEmissionsPduCount) {
+        super(entityStateCount, fireEventCount, collisionCount, detonationCount,
+             dataPduCount, actionRequestPduCount, startResumePduCount, setDataPduCount,
+             designatorPduCount, electromagneticEmissionsPduCount);
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
 }

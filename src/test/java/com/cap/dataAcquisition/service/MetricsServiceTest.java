@@ -1,10 +1,26 @@
 package com.cap.dataAcquisition.service;
 
 import com.cap.dataAcquisition.model.AggregatedMetricsOverview;
+import com.cap.dataAcquisition.model.CollisionRecord;
+import com.cap.dataAcquisition.model.DetonationRecord;
 import com.cap.dataAcquisition.model.EntityStateRecord;
 import com.cap.dataAcquisition.model.FireEventRecord;
+import com.cap.dataAcquisition.model.DataPduRecord;
+import com.cap.dataAcquisition.model.ActionRequestPduRecord;
+import com.cap.dataAcquisition.model.StartResumePduRecord;
+import com.cap.dataAcquisition.model.SetDataPduRecord;
+import com.cap.dataAcquisition.model.DesignatorPduRecord;
+import com.cap.dataAcquisition.model.ElectromagneticEmissionsPduRecord;
+import com.cap.dataAcquisition.repository.CollisionRepository;
+import com.cap.dataAcquisition.repository.DetonationRepository;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
 import com.cap.dataAcquisition.repository.FireEventRepository;
+import com.cap.dataAcquisition.repository.DataPduRepository;
+import com.cap.dataAcquisition.repository.ActionRequestPduRepository;
+import com.cap.dataAcquisition.repository.StartResumePduRepository;
+import com.cap.dataAcquisition.repository.SetDataPduRepository;
+import com.cap.dataAcquisition.repository.DesignatorPduRepository;
+import com.cap.dataAcquisition.repository.ElectromagneticEmissionsPduRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,17 +46,57 @@ class MetricsServiceTest {
 
     @Mock
     private FireEventRepository fireEventRepository;
+    
+    @Mock
+    private CollisionRepository collisionRepository;
+    
+    @Mock
+    private DetonationRepository detonationRepository;
+    
+    @Mock
+    private DataPduRepository dataPduRepository;
+    
+    @Mock
+    private ActionRequestPduRepository actionRequestPduRepository;
+    
+    @Mock
+    private StartResumePduRepository startResumePduRepository;
+    
+    @Mock
+    private SetDataPduRepository setDataPduRepository;
+    
+    @Mock
+    private DesignatorPduRepository designatorPduRepository;
+    
+    @Mock
+    private ElectromagneticEmissionsPduRepository electromagneticEmissionsPduRepository;
 
     @InjectMocks
     private MetricsService metricsService;
 
     private List<EntityStateRecord> entityStates;
     private List<FireEventRecord> fireEvents;
+    private List<CollisionRecord> collisionEvents;
+    private List<DetonationRecord> detonationEvents;
+    private List<DataPduRecord> dataPduEvents;
+    private List<ActionRequestPduRecord> actionRequestEvents;
+    private List<StartResumePduRecord> startResumeEvents;
+    private List<SetDataPduRecord> setDataEvents;
+    private List<DesignatorPduRecord> designatorEvents;
+    private List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsEvents;
 
     @BeforeEach
     void setUp() {
         entityStates = new ArrayList<>();
         fireEvents = new ArrayList<>();
+        collisionEvents = new ArrayList<>();
+        detonationEvents = new ArrayList<>();
+        dataPduEvents = new ArrayList<>();
+        actionRequestEvents = new ArrayList<>();
+        startResumeEvents = new ArrayList<>();
+        setDataEvents = new ArrayList<>();
+        designatorEvents = new ArrayList<>();
+        electromagneticEmissionsEvents = new ArrayList<>();
     }
 
     // --- Test Static Helper Methods ---
@@ -93,6 +149,56 @@ class MetricsServiceTest {
         // Set other fields if relevant
         return fer;
     }
+    
+    private CollisionRecord createCollision(long disTimestamp) {
+        CollisionRecord cr = new CollisionRecord();
+        cr.setTimestamp(disTimestamp);
+        // Set other fields if relevant
+        return cr;
+    }
+    
+    private DetonationRecord createDetonation(long disTimestamp) {
+        DetonationRecord dr = new DetonationRecord();
+        dr.setTimestamp(disTimestamp);
+        // Set other fields if relevant
+        return dr;
+    }
+    
+    private DataPduRecord createDataPdu(long disTimestamp) {
+        DataPduRecord record = new DataPduRecord();
+        record.setTimestamp(disTimestamp);
+        return record;
+    }
+    
+    private ActionRequestPduRecord createActionRequest(long disTimestamp) {
+        ActionRequestPduRecord record = new ActionRequestPduRecord();
+        record.setTimestamp(disTimestamp);
+        return record;
+    }
+    
+    private StartResumePduRecord createStartResume(long disTimestamp) {
+        StartResumePduRecord record = new StartResumePduRecord();
+        record.setTimestamp(disTimestamp);
+        return record;
+    }
+    
+    private SetDataPduRecord createSetData(long disTimestamp) {
+        SetDataPduRecord record = new SetDataPduRecord();
+        record.setTimestamp(disTimestamp);
+        return record;
+    }
+    
+    private DesignatorPduRecord createDesignator(long disTimestamp) {
+        DesignatorPduRecord record = new DesignatorPduRecord();
+        record.setTimestamp(disTimestamp);
+        return record;
+    }
+    
+    private ElectromagneticEmissionsPduRecord createElectromagneticEmissions(long disTimestamp) {
+        ElectromagneticEmissionsPduRecord record = new ElectromagneticEmissionsPduRecord();
+        record.setTimestamp(disTimestamp);
+        return record;
+    }
 
     // --- Tests for getAggregatedMetrics and calculatePeakLoad ---
 
@@ -100,12 +206,34 @@ class MetricsServiceTest {
     void getAggregatedMetrics_last60minutes_noData() {
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList()); // [cite: 47]
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList()); // [cite: 47]
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(dataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(actionRequestPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(startResumePduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(setDataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(designatorPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(electromagneticEmissionsPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
+
+        
+
+        
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("last60minutes"); // [cite: 39]
 
         assertEquals("Last 60 minutes", overview.getTimeWindowDescription()); // [cite: 40]
         assertEquals(0, overview.getTotalPackets()); // [cite: 48]
         assertEquals(0.0, overview.getAveragePacketsPerSecond()); // [cite: 49]
+        assertEquals(0, overview.getEntityStatePackets());
+        assertEquals(0, overview.getFireEventPackets());
+        assertEquals(0, overview.getCollisionPackets());
+        assertEquals(0, overview.getDetonationPackets());
+        assertEquals(0, overview.getDataPduPackets());
+        assertEquals(0, overview.getActionRequestPduPackets());
+        assertEquals(0, overview.getStartResumePduPackets());
+        assertEquals(0, overview.getSetDataPduPackets());
+        assertEquals(0, overview.getDesignatorPduPackets());
+        assertEquals(0, overview.getElectromagneticEmissionsPduPackets());
         assertNotNull(overview.getPeakLoad());
         assertEquals(0.0, overview.getPeakLoad().getPeakPacketsPerSecond()); // [cite: 56]
         assertEquals(0, overview.getPeakLoad().getPacketsInPeakInterval()); // [cite: 56]
@@ -143,11 +271,29 @@ class MetricsServiceTest {
         // We ensure our test data (dis_ts1 to dis_ts4) will fall within this window.
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(entityStates); // [cite: 47]
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(fireEvents); // [cite: 47]
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(dataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(actionRequestPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(startResumePduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(setDataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(designatorPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(electromagneticEmissionsPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("lastDay"); // [cite: 40]
 
         assertEquals("Last 24 hours", overview.getTimeWindowDescription()); // [cite: 41]
         assertEquals(4, overview.getTotalPackets()); // [cite: 48]
+        assertEquals(2, overview.getEntityStatePackets());
+        assertEquals(2, overview.getFireEventPackets());
+        assertEquals(0, overview.getCollisionPackets());
+        assertEquals(0, overview.getDetonationPackets());
+        assertEquals(0, overview.getDataPduPackets());
+        assertEquals(0, overview.getActionRequestPduPackets());
+        assertEquals(0, overview.getStartResumePduPackets());
+        assertEquals(0, overview.getSetDataPduPackets());
+        assertEquals(0, overview.getDesignatorPduPackets());
+        assertEquals(0, overview.getElectromagneticEmissionsPduPackets());
         long durationSecondsForLastDay = 24 * 60 * 60;
         assertEquals(4.0 / durationSecondsForLastDay, overview.getAveragePacketsPerSecond(), 0.0001); // [cite: 49]
 
@@ -165,6 +311,14 @@ class MetricsServiceTest {
     void getAggregatedMetrics_unsupportedPeriod_defaultsToLast60Minutes() {
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(dataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(actionRequestPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(startResumePduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(setDataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(designatorPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(electromagneticEmissionsPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("unsupportedPeriod"); // [cite: 43]
         assertEquals("Last 60 minutes (default)", overview.getTimeWindowDescription()); // [cite: 42]
@@ -185,6 +339,14 @@ class MetricsServiceTest {
 
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(entityStates);
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(dataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(actionRequestPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(startResumePduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(setDataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(designatorPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(electromagneticEmissionsPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         // Requesting for "last10minutes" will default to "last60minutes" in the current MetricsService
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("last10minutes"); // Will use default [cite: 42, 43]
@@ -219,6 +381,14 @@ class MetricsServiceTest {
     void calculatePeakLoad_emptyPduList() {
          when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(dataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(actionRequestPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(startResumePduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(setDataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(designatorPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(electromagneticEmissionsPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("last60minutes");
         AggregatedMetricsOverview.PeakLoadInfo peakLoadInfo = overview.getPeakLoad();
@@ -237,6 +407,14 @@ class MetricsServiceTest {
 
         when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(entityStates);
         when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(dataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(actionRequestPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(startResumePduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(setDataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(designatorPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(electromagneticEmissionsPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(Collections.emptyList());
 
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("last60minutes");
         AggregatedMetricsOverview.PeakLoadInfo peakLoadInfo = overview.getPeakLoad();
@@ -245,5 +423,106 @@ class MetricsServiceTest {
         assertEquals(1.0/60.0, peakLoadInfo.getPeakPacketsPerSecond(), 0.00001); // [cite: 64]
         long expectedBucketStart = (packetTime / 60) * 60;
         assertEquals(Instant.ofEpochSecond(expectedBucketStart), peakLoadInfo.getPeakIntervalStartUtc()); // [cite: 63]
+    }
+    
+    @Test
+    void getAggregatedMetrics_withAllPduTypes() {
+        Instant now = Instant.now();
+        long nowEpochSeconds = now.getEpochSecond();
+        
+        // Create timestamps for different PDU types
+        long entityStateTime = nowEpochSeconds - 300; // 5 minutes ago
+        long fireEventTime = nowEpochSeconds - 240;   // 4 minutes ago
+        long collisionTime = nowEpochSeconds - 180;   // 3 minutes ago
+        long detonationTime = nowEpochSeconds - 120;  // 2 minutes ago
+        long dataPduTime = nowEpochSeconds - 100;     // 1 minute 40 seconds ago
+        
+        // Make sure all 5 PDUs are in the same minute bucket by using the same timestamp
+        // This ensures they'll be counted together in the peak load calculation
+        long sameMinuteBucket = (nowEpochSeconds / 60) * 60; // Round down to the start of the current minute
+        long actionRequestTime = sameMinuteBucket + 10; // 10 seconds into the minute
+        long startResumeTime = sameMinuteBucket + 20;   // 20 seconds into the minute
+        long setDataTime = sameMinuteBucket + 30;       // 30 seconds into the minute
+        long designatorTime = sameMinuteBucket + 40;    // 40 seconds into the minute
+        long emissionsTime = sameMinuteBucket + 50;     // 50 seconds into the minute
+        
+        // Convert to DIS Timestamps
+        long disEntityStateTime = MetricsService.toDisAbsoluteTimestamp(entityStateTime);
+        long disFireEventTime = MetricsService.toDisAbsoluteTimestamp(fireEventTime);
+        long disCollisionTime = MetricsService.toDisAbsoluteTimestamp(collisionTime);
+        long disDetonationTime = MetricsService.toDisAbsoluteTimestamp(detonationTime);
+        long disDataPduTime = MetricsService.toDisAbsoluteTimestamp(dataPduTime);
+        long disActionRequestTime = MetricsService.toDisAbsoluteTimestamp(actionRequestTime);
+        long disStartResumeTime = MetricsService.toDisAbsoluteTimestamp(startResumeTime);
+        long disSetDataTime = MetricsService.toDisAbsoluteTimestamp(setDataTime);
+        long disDesignatorTime = MetricsService.toDisAbsoluteTimestamp(designatorTime);
+        long disEmissionsTime = MetricsService.toDisAbsoluteTimestamp(emissionsTime);
+        
+        // Add records to their respective lists
+        entityStates.add(createEntityState(disEntityStateTime));
+        fireEvents.add(createFireEvent(disFireEventTime));
+        collisionEvents.add(createCollision(disCollisionTime));
+        detonationEvents.add(createDetonation(disDetonationTime));
+        
+        // Create helper methods for the new PDU types
+        DataPduRecord dataPdu = new DataPduRecord();
+        dataPdu.setTimestamp(disDataPduTime);
+        dataPduEvents.add(dataPdu);
+        
+        ActionRequestPduRecord actionRequest = new ActionRequestPduRecord();
+        actionRequest.setTimestamp(disActionRequestTime);
+        actionRequestEvents.add(actionRequest);
+        
+        StartResumePduRecord startResume = new StartResumePduRecord();
+        startResume.setTimestamp(disStartResumeTime);
+        startResumeEvents.add(startResume);
+        
+        SetDataPduRecord setData = new SetDataPduRecord();
+        setData.setTimestamp(disSetDataTime);
+        setDataEvents.add(setData);
+        
+        DesignatorPduRecord designator = new DesignatorPduRecord();
+        designator.setTimestamp(disDesignatorTime);
+        designatorEvents.add(designator);
+        
+        ElectromagneticEmissionsPduRecord emissions = new ElectromagneticEmissionsPduRecord();
+        emissions.setTimestamp(disEmissionsTime);
+        electromagneticEmissionsEvents.add(emissions);
+        
+        // Mock repository calls
+        when(entityStateRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(entityStates);
+        when(fireEventRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(fireEvents);
+        when(collisionRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(collisionEvents);
+        when(detonationRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(detonationEvents);
+        when(dataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(dataPduEvents);
+        when(actionRequestPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(actionRequestEvents);
+        when(startResumePduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(startResumeEvents);
+        when(setDataPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(setDataEvents);
+        when(designatorPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(designatorEvents);
+        when(electromagneticEmissionsPduRepository.findByTimestampBetween(anyLong(), anyLong())).thenReturn(electromagneticEmissionsEvents);
+        
+        AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics("last60minutes");
+        
+        // Verify counts for each PDU type
+        assertEquals(10, overview.getTotalPackets());
+        assertEquals(1, overview.getEntityStatePackets());
+        assertEquals(1, overview.getFireEventPackets());
+        assertEquals(1, overview.getCollisionPackets());
+        assertEquals(1, overview.getDetonationPackets());
+        assertEquals(1, overview.getDataPduPackets());
+         assertEquals(1, overview.getActionRequestPduPackets());
+         assertEquals(1, overview.getStartResumePduPackets());
+         assertEquals(1, overview.getSetDataPduPackets());
+         assertEquals(1, overview.getDesignatorPduPackets());
+         assertEquals(1, overview.getElectromagneticEmissionsPduPackets());
+        
+        // Verify average packets per second
+        double durationSeconds = 60 * 60; // 60 minutes in seconds
+        assertEquals(10.0 / durationSeconds, overview.getAveragePacketsPerSecond(), 0.0001);
+        
+        // Verify peak load (we have 5 PDUs in the same minute)
+         // The last 5 PDUs are all within the same minute bucket (nowEpochSeconds - 60 to nowEpochSeconds)
+         assertEquals(5, overview.getPeakLoad().getPacketsInPeakInterval());
+         assertEquals(5.0/60.0, overview.getPeakLoad().getPeakPacketsPerSecond(), 0.00001);
     }
 }

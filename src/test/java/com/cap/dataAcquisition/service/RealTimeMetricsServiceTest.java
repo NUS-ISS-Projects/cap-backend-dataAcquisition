@@ -36,37 +36,59 @@ class RealTimeMetricsServiceTest {
 
     @Test
     void getLatestMetrics_success() {
-        RealTimeMetrics expectedMetrics = new RealTimeMetrics(12345L, 100L, 1.66); // [cite: 16]
-        when(restTemplate.getForObject(eq(fullMetricsUrl), eq(RealTimeMetrics.class))).thenReturn(expectedMetrics); // [cite: 75]
+        RealTimeMetrics expectedMetrics = new RealTimeMetrics(
+            12345L, // lastPduReceivedTimestampMs
+            100L,   // pdusInLastSixtySeconds
+            1.66,   // averagePduRatePerSecondLastSixtySeconds
+            40L,    // entityStatePdusInLastSixtySeconds
+            30L,    // fireEventPdusInLastSixtySeconds
+            20L,    // collisionPdusInLastSixtySeconds
+            10L     // detonationPdusInLastSixtySeconds
+        );
+        when(restTemplate.getForObject(eq(fullMetricsUrl), eq(RealTimeMetrics.class))).thenReturn(expectedMetrics);
 
-        RealTimeMetrics actualMetrics = realTimeMetricsService.getLatestMetrics(); // [cite: 73]
+        RealTimeMetrics actualMetrics = realTimeMetricsService.getLatestMetrics();
 
         assertNotNull(actualMetrics);
         assertEquals(expectedMetrics.getLastPduReceivedTimestampMs(), actualMetrics.getLastPduReceivedTimestampMs());
         assertEquals(expectedMetrics.getPdusInLastSixtySeconds(), actualMetrics.getPdusInLastSixtySeconds());
+        assertEquals(expectedMetrics.getEntityStatePdusInLastSixtySeconds(), actualMetrics.getEntityStatePdusInLastSixtySeconds());
+        assertEquals(expectedMetrics.getFireEventPdusInLastSixtySeconds(), actualMetrics.getFireEventPdusInLastSixtySeconds());
+        assertEquals(expectedMetrics.getCollisionPdusInLastSixtySeconds(), actualMetrics.getCollisionPdusInLastSixtySeconds());
+        assertEquals(expectedMetrics.getDetonationPdusInLastSixtySeconds(), actualMetrics.getDetonationPdusInLastSixtySeconds());
     }
 
     @Test
     void getLatestMetrics_nullResponseFromService() {
-        when(restTemplate.getForObject(eq(fullMetricsUrl), eq(RealTimeMetrics.class))).thenReturn(null); // [cite: 75]
+        when(restTemplate.getForObject(eq(fullMetricsUrl), eq(RealTimeMetrics.class))).thenReturn(null);
 
-        RealTimeMetrics actualMetrics = realTimeMetricsService.getLatestMetrics(); // [cite: 76]
+        RealTimeMetrics actualMetrics = realTimeMetricsService.getLatestMetrics();
 
-        assertNotNull(actualMetrics); // Fallback metrics are returned [cite: 81]
+        assertNotNull(actualMetrics); // Fallback metrics are returned
         assertEquals(0L, actualMetrics.getLastPduReceivedTimestampMs());
         assertEquals(0L, actualMetrics.getPdusInLastSixtySeconds());
         assertEquals(0.0, actualMetrics.getAveragePduRatePerSecondLastSixtySeconds());
+        assertEquals(0L, actualMetrics.getEntityStatePdusInLastSixtySeconds());
+        assertEquals(0L, actualMetrics.getFireEventPdusInLastSixtySeconds());
+        assertEquals(0L, actualMetrics.getCollisionPdusInLastSixtySeconds());
+        assertEquals(0L, actualMetrics.getDetonationPdusInLastSixtySeconds());
     }
 
     @Test
     void getLatestMetrics_restClientException() {
         when(restTemplate.getForObject(eq(fullMetricsUrl), eq(RealTimeMetrics.class)))
-            .thenThrow(new RestClientException("Connection failed")); // [cite: 78]
+            .thenThrow(new RestClientException("Connection failed"));
 
-        RealTimeMetrics actualMetrics = realTimeMetricsService.getLatestMetrics(); // [cite: 79]
+        RealTimeMetrics actualMetrics = realTimeMetricsService.getLatestMetrics();
 
-        assertNotNull(actualMetrics); // Fallback metrics are returned [cite: 81]
+        assertNotNull(actualMetrics); // Fallback metrics are returned
         assertEquals(0L, actualMetrics.getLastPduReceivedTimestampMs());
+        assertEquals(0L, actualMetrics.getPdusInLastSixtySeconds());
+        assertEquals(0.0, actualMetrics.getAveragePduRatePerSecondLastSixtySeconds());
+        assertEquals(0L, actualMetrics.getEntityStatePdusInLastSixtySeconds());
+        assertEquals(0L, actualMetrics.getFireEventPdusInLastSixtySeconds());
+        assertEquals(0L, actualMetrics.getCollisionPdusInLastSixtySeconds());
+        assertEquals(0L, actualMetrics.getDetonationPdusInLastSixtySeconds());
         // The fallback message is logged, not part of the returned DTO usually
     }
 }
