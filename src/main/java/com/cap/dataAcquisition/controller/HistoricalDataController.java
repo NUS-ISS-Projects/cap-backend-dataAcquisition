@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -253,11 +254,55 @@ public class HistoricalDataController {
 
     @GetMapping("/aggregate")
     public ResponseEntity<CustomRangeAggregation> getCustomRangeAggregatedData(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false, defaultValue = "false") boolean today,
+            @RequestParam(required = false, defaultValue = "false") boolean week,
+            @RequestParam(required = false, defaultValue = "false") boolean month) {
 
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+        LocalDate actualStartDate;
+        LocalDate actualEndDate;
+        
+        try {
+            if (today) {
+                // Show all data for today
+                actualStartDate = LocalDate.now(ZoneId.of("UTC"));
+                actualEndDate = actualStartDate;
+                log.info("Fetching aggregation for today: {}", actualStartDate);
+            } else if (startDate != null && week) {
+                // Show data for the given date and the past week (Monday is start of week)
+                LocalDate parsedStartDate = LocalDate.parse(startDate);
+                LocalDate mondayOfWeek = parsedStartDate.with(DayOfWeek.MONDAY);
+                actualStartDate = mondayOfWeek;
+                actualEndDate = parsedStartDate;
+                log.info("Fetching aggregation for week from {} to {}", actualStartDate, actualEndDate);
+            } else if (startDate != null && month) {
+                // Show data for the given date and the past month
+                LocalDate parsedStartDate = LocalDate.parse(startDate);
+                LocalDate firstOfMonth = parsedStartDate.withDayOfMonth(1);
+                actualStartDate = firstOfMonth;
+                actualEndDate = parsedStartDate;
+                log.info("Fetching aggregation for month from {} to {}", actualStartDate, actualEndDate);
+            } else if (startDate != null && endDate != null) {
+                // Custom range
+                actualStartDate = LocalDate.parse(startDate);
+                actualEndDate = LocalDate.parse(endDate);
+                log.info("Fetching aggregation for custom range from {} to {}", actualStartDate, actualEndDate);
+            } else if (startDate != null) {
+                // Only date selected: show all data within the given date
+                actualStartDate = LocalDate.parse(startDate);
+                actualEndDate = actualStartDate;
+                log.info("Fetching aggregation for single date: {}", actualStartDate);
+            } else {
+                return ResponseEntity.badRequest().body(null);
+            }
+        } catch (Exception e) {
+            log.error("Error parsing date parameters: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(null);
+        }
+
+        LocalDateTime startDateTime = actualStartDate.atStartOfDay();
+        LocalDateTime endDateTime = actualEndDate.atTime(LocalTime.MAX);
 
         long startEpochSeconds = startDateTime.atZone(ZoneId.of("UTC")).toEpochSecond();
         long endEpochSeconds = endDateTime.atZone(ZoneId.of("UTC")).toEpochSecond();
@@ -265,7 +310,7 @@ public class HistoricalDataController {
         long disStartTime = MetricsService.toDisAbsoluteTimestamp(startEpochSeconds);
         long disEndTime = MetricsService.toDisAbsoluteTimestamp(endEpochSeconds);
 
-        log.info("Fetching custom range aggregation for Start: {}, End: {} (DIS TS Range: {} to {})", startDate, endDate, disStartTime, disEndTime);
+        log.info("DIS TS Range: {} to {}", disStartTime, disEndTime);
         log.info("Corresponding UTC Range: {} to {}", MetricsService.formatInstant(Instant.ofEpochSecond(startEpochSeconds)), MetricsService.formatInstant(Instant.ofEpochSecond(endEpochSeconds)));
 
         List<EntityStateRecord> entityStates = entityStateRepository.findByTimestampBetween(disStartTime, disEndTime);
@@ -280,8 +325,8 @@ public class HistoricalDataController {
         List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsPduEvents = electromagneticEmissionsPduRepository.findByTimestampBetween(disStartTime, disEndTime);
 
         CustomRangeAggregation result = new CustomRangeAggregation(
-                startDate.toString(),
-                endDate.toString(),
+                actualStartDate.toString(),
+                actualEndDate.toString(),
                 entityStates != null ? entityStates.size() : 0,
                 fireEvents != null ? fireEvents.size() : 0,
                 collisionEvents != null ? collisionEvents.size() : 0,
