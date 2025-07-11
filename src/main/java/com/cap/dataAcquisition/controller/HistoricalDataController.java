@@ -14,6 +14,7 @@ import com.cap.dataAcquisition.model.RealTimeMetrics;
 import com.cap.dataAcquisition.model.MonthlyAggregation;
 import com.cap.dataAcquisition.model.CustomRangeAggregation;
 import com.cap.dataAcquisition.model.AggregatedMetricsOverview;
+import com.cap.dataAcquisition.dto.PduLogResponse;
 import com.cap.dataAcquisition.repository.CollisionRepository;
 import com.cap.dataAcquisition.repository.DetonationRepository;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
@@ -302,5 +303,23 @@ public class HistoricalDataController {
         
         AggregatedMetricsOverview overview = metricsService.getAggregatedMetrics(period);
         return ResponseEntity.ok(overview);
+    }
+
+    // --- NEW REALTIME LOGS ENDPOINT ---
+    @GetMapping("/realtime/logs")
+    public ResponseEntity<PduLogResponse> getRealtimePduLogs(
+            @RequestParam Long startTime, // Expecting Unix Epoch Timestamp (seconds)
+            @RequestParam Long endTime) { // Expecting Unix Epoch Timestamp (seconds)
+        
+        log.info("Fetching realtime PDU logs between Unix Epoch: {} ({}) and {} ({})",
+            startTime, MetricsService.formatInstant(Instant.ofEpochSecond(startTime)),
+            endTime, MetricsService.formatInstant(Instant.ofEpochSecond(endTime)));
+        
+        // Convert Unix epoch timestamps to DIS timestamps for internal processing
+        Long disStartTime = MetricsService.toDisAbsoluteTimestamp(startTime);
+        Long disEndTime = MetricsService.toDisAbsoluteTimestamp(endTime);
+        
+        PduLogResponse response = metricsService.getAllPduLogs(disStartTime, disEndTime);
+        return ResponseEntity.ok(response);
     }
 }

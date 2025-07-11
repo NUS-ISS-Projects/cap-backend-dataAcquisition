@@ -1,6 +1,7 @@
 package com.cap.dataAcquisition.controller;
 
 import com.cap.dataAcquisition.model.*;
+import com.cap.dataAcquisition.dto.PduLogResponse;
 import com.cap.dataAcquisition.repository.CollisionRepository;
 import com.cap.dataAcquisition.repository.DetonationRepository;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
@@ -25,6 +26,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
@@ -243,5 +246,56 @@ class HistoricalDataControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.timeWindowDescription", is("Last 24 hours")))
             .andExpect(jsonPath("$.totalPackets", is(5000)));
+    }
+
+    @Test
+    void getPduLogs_withTimeRange_returnsFormattedLogs() throws Exception {
+        // Create sample PDU log entries
+        Map<String, Object> entityStateDetails = new HashMap<>();
+        entityStateDetails.put("site", "123");
+        entityStateDetails.put("application", "456");
+        entityStateDetails.put("locationX", "100.5");
+        entityStateDetails.put("locationY", "200.3");
+        entityStateDetails.put("locationZ", "50.1");
+        
+        Map<String, Object> emissionDetails = new HashMap<>();
+        emissionDetails.put("emittingSite", "789");
+        emissionDetails.put("emittingApplication", "101");
+        emissionDetails.put("emittingEntity", "202");
+        
+        PduLogResponse.PduLogEntry entityStateEntry = new PduLogResponse.PduLogEntry(
+            1L, "EntityState", 144, entityStateDetails
+        );
+        
+        PduLogResponse.PduLogEntry emissionEntry = new PduLogResponse.PduLogEntry(
+            2L, "ElectromagneticEmissions", 156, emissionDetails
+        );
+        
+        PduLogResponse response = new PduLogResponse(
+            List.of(entityStateEntry, emissionEntry)
+        );
+        
+        when(metricsService.getAllPduLogs(anyLong(), anyLong())).thenReturn(response);
+
+        mockMvc.perform(get("/api/acquisition/realtime/logs")
+                .param("startTime", "1000")
+                .param("endTime", "2000"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.Pdu_messages", hasSize(2)))
+            .andExpect(jsonPath("$.Pdu_messages[0].Id", is(1)))
+            .andExpect(jsonPath("$.Pdu_messages[0].PDUType", is("EntityState")))
+            .andExpect(jsonPath("$.Pdu_messages[0].length", is(144)))
+            .andExpect(jsonPath("$.Pdu_messages[0].recordDetails.site", is("123")))
+            .andExpect(jsonPath("$.Pdu_messages[0].recordDetails.locationX", is("100.5")))
+            .andExpect(jsonPath("$.Pdu_messages[1].Id", is(2)))
+            .andExpect(jsonPath("$.Pdu_messages[1].PDUType", is("ElectromagneticEmissions")))
+            .andExpect(jsonPath("$.Pdu_messages[1].length", is(156)))
+            .andExpect(jsonPath("$.Pdu_messages[1].recordDetails.emittingSite", is("789")));
+    }
+
+    @Test
+    void getPduLogs_missingParameters_returnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/acquisition/realtime/logs"))
+            .andExpect(status().isBadRequest());
     }
 }

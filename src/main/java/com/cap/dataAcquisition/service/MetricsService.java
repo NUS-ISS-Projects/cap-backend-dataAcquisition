@@ -11,6 +11,7 @@ import com.cap.dataAcquisition.model.StartResumePduRecord;
 import com.cap.dataAcquisition.model.SetDataPduRecord;
 import com.cap.dataAcquisition.model.DesignatorPduRecord;
 import com.cap.dataAcquisition.model.ElectromagneticEmissionsPduRecord;
+import com.cap.dataAcquisition.dto.PduLogResponse;
 import com.cap.dataAcquisition.repository.CollisionRepository;
 import com.cap.dataAcquisition.repository.DetonationRepository;
 import com.cap.dataAcquisition.repository.EntityStateRepository;
@@ -30,6 +31,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -267,5 +269,277 @@ public class MetricsService {
                 peakIntervalEndUtc,
                 maxPacketsInInterval // This count is for the full bucket, not potentially clipped interval
         );
+    }
+
+    // --- New method for fetching all PDU logs within a time range ---
+    public PduLogResponse getAllPduLogs(Long startTime, Long endTime) {
+        log.info("Fetching all PDU logs between DIS TS: {} and {}", startTime, endTime);
+        
+        List<PduLogResponse.PduLogEntry> pduMessages = new ArrayList<>();
+        
+        // Fetch all PDU types within the time range
+        List<EntityStateRecord> entityStates = entityStateRepository.findByTimestampBetween(startTime, endTime);
+        List<FireEventRecord> fireEvents = fireEventRepository.findByTimestampBetween(startTime, endTime);
+        List<CollisionRecord> collisionEvents = collisionRepository.findByTimestampBetween(startTime, endTime);
+        List<DetonationRecord> detonationEvents = detonationRepository.findByTimestampBetween(startTime, endTime);
+        List<DataPduRecord> dataPduEvents = dataPduRepository.findByTimestampBetween(startTime, endTime);
+        List<ActionRequestPduRecord> actionRequestEvents = actionRequestPduRepository.findByTimestampBetween(startTime, endTime);
+        List<StartResumePduRecord> startResumeEvents = startResumePduRepository.findByTimestampBetween(startTime, endTime);
+        List<SetDataPduRecord> setDataEvents = setDataPduRepository.findByTimestampBetween(startTime, endTime);
+        List<DesignatorPduRecord> designatorEvents = designatorPduRepository.findByTimestampBetween(startTime, endTime);
+        List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsEvents = electromagneticEmissionsPduRepository.findByTimestampBetween(startTime, endTime);
+        
+        // Convert EntityState records
+        if (entityStates != null) {
+            for (EntityStateRecord record : entityStates) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("site", record.getSite());
+                recordDetails.put("application", record.getApplication());
+                recordDetails.put("entity", record.getEntity());
+                recordDetails.put("locationX", record.getLocationX());
+                recordDetails.put("locationY", record.getLocationY());
+                recordDetails.put("locationZ", record.getLocationZ());
+                recordDetails.put("timestamp", record.getTimestamp()); // Keep original DIS timestamp for compatibility
+                recordDetails.put("timestampEpoch", fromDisAbsoluteTimestamp(record.getTimestamp())); // Unix epoch seconds
+                recordDetails.put("timestampHuman", formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(record.getTimestamp())))); // Human readable
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "EntityState",
+                    calculatePduLength("EntityState", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        // Convert FireEvent records
+        if (fireEvents != null) {
+            for (FireEventRecord record : fireEvents) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("firingSite", record.getFiringSite());
+                recordDetails.put("firingApplication", record.getFiringApplication());
+                recordDetails.put("firingEntity", record.getFiringEntity());
+                recordDetails.put("targetSite", record.getTargetSite());
+                recordDetails.put("targetApplication", record.getTargetApplication());
+                recordDetails.put("targetEntity", record.getTargetEntity());
+                recordDetails.put("munitionSite", record.getMunitionSite());
+                recordDetails.put("munitionApplication", record.getMunitionApplication());
+                recordDetails.put("munitionEntity", record.getMunitionEntity());
+                recordDetails.put("timestamp", record.getTimestamp()); // Keep original DIS timestamp for compatibility
+                recordDetails.put("timestampEpoch", fromDisAbsoluteTimestamp(record.getTimestamp())); // Unix epoch seconds
+                recordDetails.put("timestampHuman", formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(record.getTimestamp())))); // Human readable
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "FireEvent",
+                    calculatePduLength("FireEvent", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        // Convert Collision records
+        if (collisionEvents != null) {
+            for (CollisionRecord record : collisionEvents) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("issuingSite", record.getIssuingSite());
+                recordDetails.put("issuingApplication", record.getIssuingApplication());
+                recordDetails.put("issuingEntity", record.getIssuingEntity());
+                recordDetails.put("collidingSite", record.getCollidingSite());
+                recordDetails.put("collidingApplication", record.getCollidingApplication());
+                recordDetails.put("collidingEntity", record.getCollidingEntity());
+                recordDetails.put("timestamp", record.getTimestamp()); // Keep original DIS timestamp for compatibility
+                recordDetails.put("timestampEpoch", fromDisAbsoluteTimestamp(record.getTimestamp())); // Unix epoch seconds
+                recordDetails.put("timestampHuman", formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(record.getTimestamp())))); // Human readable
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "Collision",
+                    calculatePduLength("Collision", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        // Convert Detonation records
+        if (detonationEvents != null) {
+            for (DetonationRecord record : detonationEvents) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("firingSite", record.getFiringSite());
+                recordDetails.put("firingApplication", record.getFiringApplication());
+                recordDetails.put("firingEntity", record.getFiringEntity());
+                recordDetails.put("targetSite", record.getTargetSite());
+                recordDetails.put("targetApplication", record.getTargetApplication());
+                recordDetails.put("targetEntity", record.getTargetEntity());
+                recordDetails.put("locationX", record.getLocationX());
+                recordDetails.put("locationY", record.getLocationY());
+                recordDetails.put("locationZ", record.getLocationZ());
+                recordDetails.put("timestamp", record.getTimestamp());
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "Detonation",
+                    calculatePduLength("Detonation", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        // Convert DataPdu records
+        if (dataPduEvents != null) {
+            for (DataPduRecord record : dataPduEvents) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("originatingSite", record.getOriginatingSite());
+                recordDetails.put("originatingApplication", record.getOriginatingApplication());
+                recordDetails.put("originatingEntity", record.getOriginatingEntity());
+                recordDetails.put("receivingSite", record.getReceivingSite());
+                recordDetails.put("receivingApplication", record.getReceivingApplication());
+                recordDetails.put("receivingEntity", record.getReceivingEntity());
+                recordDetails.put("timestamp", record.getTimestamp()); // Keep original DIS timestamp for compatibility
+                recordDetails.put("timestampEpoch", fromDisAbsoluteTimestamp(record.getTimestamp())); // Unix epoch seconds
+                recordDetails.put("timestampHuman", formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(record.getTimestamp())))); // Human readable
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "DataPdu",
+                    calculatePduLength("DataPdu", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        // Convert ActionRequest records
+        if (actionRequestEvents != null) {
+            for (ActionRequestPduRecord record : actionRequestEvents) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("originatingSite", record.getOriginatingSite());
+                recordDetails.put("originatingApplication", record.getOriginatingApplication());
+                recordDetails.put("originatingEntity", record.getOriginatingEntity());
+                recordDetails.put("receivingSite", record.getReceivingSite());
+                recordDetails.put("receivingApplication", record.getReceivingApplication());
+                recordDetails.put("receivingEntity", record.getReceivingEntity());
+                recordDetails.put("timestamp", record.getTimestamp());
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "ActionRequest",
+                    calculatePduLength("ActionRequest", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        // Convert StartResume records
+        if (startResumeEvents != null) {
+            for (StartResumePduRecord record : startResumeEvents) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("hour", record.getHour());
+                recordDetails.put("timePastHour", record.getTimePastHour());
+                recordDetails.put("timestamp", record.getTimestamp()); // Keep original DIS timestamp for compatibility
+                recordDetails.put("timestampEpoch", fromDisAbsoluteTimestamp(record.getTimestamp())); // Unix epoch seconds
+                recordDetails.put("timestampHuman", formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(record.getTimestamp())))); // Human readable
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "StartResume",
+                    calculatePduLength("StartResume", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        // Convert SetData records
+        if (setDataEvents != null) {
+            for (SetDataPduRecord record : setDataEvents) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("originatingSite", record.getOriginatingSite());
+                recordDetails.put("originatingApplication", record.getOriginatingApplication());
+                recordDetails.put("originatingEntity", record.getOriginatingEntity());
+                recordDetails.put("timestamp", record.getTimestamp()); // Keep original DIS timestamp for compatibility
+                recordDetails.put("timestampEpoch", fromDisAbsoluteTimestamp(record.getTimestamp())); // Unix epoch seconds
+                recordDetails.put("timestampHuman", formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(record.getTimestamp())))); // Human readable
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "SetData",
+                    calculatePduLength("SetData", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        // Convert Designator records
+        if (designatorEvents != null) {
+            for (DesignatorPduRecord record : designatorEvents) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("designatingSite", record.getDesignatingSite());
+                recordDetails.put("designatingApplication", record.getDesignatingApplication());
+                recordDetails.put("designatingEntity", record.getDesignatingEntity());
+                recordDetails.put("timestamp", record.getTimestamp()); // Keep original DIS timestamp for compatibility
+                recordDetails.put("timestampEpoch", fromDisAbsoluteTimestamp(record.getTimestamp())); // Unix epoch seconds
+                recordDetails.put("timestampHuman", formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(record.getTimestamp())))); // Human readable
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "Designator",
+                    calculatePduLength("Designator", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        // Convert ElectromagneticEmissions records
+        if (electromagneticEmissionsEvents != null) {
+            for (ElectromagneticEmissionsPduRecord record : electromagneticEmissionsEvents) {
+                Map<String, Object> recordDetails = new HashMap<>();
+                recordDetails.put("emittingSite", record.getEmittingSite());
+                recordDetails.put("emittingApplication", record.getEmittingApplication());
+                recordDetails.put("emittingEntity", record.getEmittingEntity());
+                recordDetails.put("timestamp", record.getTimestamp()); // Keep original DIS timestamp for compatibility
+                recordDetails.put("timestampEpoch", fromDisAbsoluteTimestamp(record.getTimestamp())); // Unix epoch seconds
+                recordDetails.put("timestampHuman", formatInstant(Instant.ofEpochSecond(fromDisAbsoluteTimestamp(record.getTimestamp())))); // Human readable
+                
+                pduMessages.add(new PduLogResponse.PduLogEntry(
+                    record.getId(),
+                    "ElectromagneticEmissions",
+                    calculatePduLength("ElectromagneticEmissions", recordDetails),
+                    recordDetails
+                ));
+            }
+        }
+        
+        log.info("Returning {} PDU log entries", pduMessages.size());
+        return new PduLogResponse(pduMessages);
+    }
+    
+    // Helper method to calculate PDU length based on type and content
+    private int calculatePduLength(String pduType, Map<String, Object> recordDetails) {
+        // Base PDU header length (common to all PDUs)
+        int baseLength = 12; // PDU header
+        
+        switch (pduType) {
+            case "EntityState":
+                return baseLength + 144; // EntityState PDU typical length
+            case "FireEvent":
+                return baseLength + 96; // Fire PDU typical length
+            case "Collision":
+                return baseLength + 56; // Collision PDU typical length
+            case "Detonation":
+                return baseLength + 104; // Detonation PDU typical length
+            case "DataPdu":
+                return baseLength + 64; // Data PDU typical length
+            case "ActionRequest":
+                return baseLength + 64; // Action Request PDU typical length
+            case "StartResume":
+                return baseLength + 40; // Start/Resume PDU typical length
+            case "SetData":
+                return baseLength + 32; // Set Data PDU typical length
+            case "Designator":
+                return baseLength + 88; // Designator PDU typical length
+            case "ElectromagneticEmissions":
+                return baseLength + 72; // Electromagnetic Emissions PDU typical length
+            default:
+                return baseLength + 32; // Default length for unknown PDU types
+        }
     }
 }
