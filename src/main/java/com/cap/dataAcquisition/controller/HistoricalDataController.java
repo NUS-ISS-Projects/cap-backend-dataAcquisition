@@ -13,6 +13,8 @@ import com.cap.dataAcquisition.model.ElectromagneticEmissionsPduRecord;
 import com.cap.dataAcquisition.model.RealTimeMetrics;
 import com.cap.dataAcquisition.model.MonthlyAggregation;
 import com.cap.dataAcquisition.model.CustomRangeAggregation;
+import com.cap.dataAcquisition.model.TimeBucketAggregation;
+import com.cap.dataAcquisition.model.TimeBucket;
 import com.cap.dataAcquisition.model.AggregatedMetricsOverview;
 import com.cap.dataAcquisition.dto.PduLogResponse;
 import com.cap.dataAcquisition.repository.CollisionRepository;
@@ -44,6 +46,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId; // Keep ZoneId if used by original methods
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/api/acquisition")
@@ -253,7 +259,7 @@ public class HistoricalDataController {
     }
 
     @GetMapping("/aggregate")
-    public ResponseEntity<CustomRangeAggregation> getCustomRangeAggregatedData(
+    public ResponseEntity<?> getCustomRangeAggregatedData(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false, defaultValue = "false") boolean today,
@@ -262,6 +268,7 @@ public class HistoricalDataController {
 
         LocalDate actualStartDate;
         LocalDate actualEndDate;
+        boolean shouldReturnBuckets = today || week || month;
         
         try {
             if (today) {
@@ -277,12 +284,11 @@ public class HistoricalDataController {
                 actualEndDate = parsedStartDate;
                 log.info("Fetching aggregation for week from {} to {}", actualStartDate, actualEndDate);
             } else if (startDate != null && month) {
-                // Show data for the given date and the past month
+                // Show data for 4 weeks starting from the given date
                 LocalDate parsedStartDate = LocalDate.parse(startDate);
-                LocalDate firstOfMonth = parsedStartDate.withDayOfMonth(1);
-                actualStartDate = firstOfMonth;
-                actualEndDate = parsedStartDate;
-                log.info("Fetching aggregation for month from {} to {}", actualStartDate, actualEndDate);
+                actualStartDate = parsedStartDate;
+                actualEndDate = parsedStartDate.plusWeeks(4).minusDays(1);
+                log.info("Fetching aggregation for 4 weeks from {} to {}", actualStartDate, actualEndDate);
             } else if (startDate != null && endDate != null) {
                 // Custom range
                 actualStartDate = LocalDate.parse(startDate);
@@ -324,21 +330,226 @@ public class HistoricalDataController {
         List<DesignatorPduRecord> designatorPduEvents = designatorPduRepository.findByTimestampBetween(disStartTime, disEndTime);
         List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsPduEvents = electromagneticEmissionsPduRepository.findByTimestampBetween(disStartTime, disEndTime);
 
-        CustomRangeAggregation result = new CustomRangeAggregation(
-                actualStartDate.toString(),
-                actualEndDate.toString(),
-                entityStates != null ? entityStates.size() : 0,
-                fireEvents != null ? fireEvents.size() : 0,
-                collisionEvents != null ? collisionEvents.size() : 0,
-                detonationEvents != null ? detonationEvents.size() : 0,
-                dataPduEvents != null ? dataPduEvents.size() : 0,
-                actionRequestPduEvents != null ? actionRequestPduEvents.size() : 0,
-                startResumePduEvents != null ? startResumePduEvents.size() : 0,
-                setDataPduEvents != null ? setDataPduEvents.size() : 0,
-                designatorPduEvents != null ? designatorPduEvents.size() : 0,
-                electromagneticEmissionsPduEvents != null ? electromagneticEmissionsPduEvents.size() : 0
-        );
-        return ResponseEntity.ok(result);
+        if (shouldReturnBuckets) {
+            return ResponseEntity.ok(createTimeBucketAggregation(
+                actualStartDate, actualEndDate, today, week, month,
+                entityStates, fireEvents, collisionEvents, detonationEvents,
+                dataPduEvents, actionRequestPduEvents, startResumePduEvents,
+                setDataPduEvents, designatorPduEvents, electromagneticEmissionsPduEvents
+            ));
+        } else {
+            CustomRangeAggregation result = new CustomRangeAggregation(
+                    actualStartDate.toString(),
+                    actualEndDate.toString(),
+                    entityStates != null ? entityStates.size() : 0,
+                    fireEvents != null ? fireEvents.size() : 0,
+                    collisionEvents != null ? collisionEvents.size() : 0,
+                    detonationEvents != null ? detonationEvents.size() : 0,
+                    dataPduEvents != null ? dataPduEvents.size() : 0,
+                    actionRequestPduEvents != null ? actionRequestPduEvents.size() : 0,
+                    startResumePduEvents != null ? startResumePduEvents.size() : 0,
+                    setDataPduEvents != null ? setDataPduEvents.size() : 0,
+                    designatorPduEvents != null ? designatorPduEvents.size() : 0,
+                    electromagneticEmissionsPduEvents != null ? electromagneticEmissionsPduEvents.size() : 0
+            );
+            return ResponseEntity.ok(result);
+        }
+    }
+
+    private TimeBucketAggregation createTimeBucketAggregation(
+            LocalDate startDate, LocalDate endDate, boolean today, boolean week, boolean month,
+            List<EntityStateRecord> entityStates, List<FireEventRecord> fireEvents,
+            List<CollisionRecord> collisionEvents, List<DetonationRecord> detonationEvents,
+            List<DataPduRecord> dataPduEvents, List<ActionRequestPduRecord> actionRequestPduEvents,
+            List<StartResumePduRecord> startResumePduEvents, List<SetDataPduRecord> setDataPduEvents,
+            List<DesignatorPduRecord> designatorPduEvents, List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsPduEvents) {
+        
+        List<TimeBucket> buckets = new ArrayList<>();
+        String timeUnit = "day"; // default
+        String start = startDate.toString();
+        String end = endDate.toString();
+        
+        if (today) {
+            timeUnit = "hour";
+            start = startDate.atStartOfDay().atZone(ZoneId.of("UTC")).toString();
+            end = endDate.atTime(LocalTime.MAX).atZone(ZoneId.of("UTC")).toString();
+            buckets = createHourlyBuckets(startDate, entityStates, fireEvents, collisionEvents, detonationEvents,
+                    dataPduEvents, actionRequestPduEvents, startResumePduEvents, setDataPduEvents,
+                    designatorPduEvents, electromagneticEmissionsPduEvents);
+        } else if (week) {
+            timeUnit = "day";
+            start = startDate.toString();
+            end = endDate.toString();
+            buckets = createDailyBuckets(startDate, endDate, entityStates, fireEvents, collisionEvents, detonationEvents,
+                    dataPduEvents, actionRequestPduEvents, startResumePduEvents, setDataPduEvents,
+                    designatorPduEvents, electromagneticEmissionsPduEvents);
+        } else if (month) {
+            timeUnit = "week";
+            start = startDate.toString();
+            end = endDate.toString();
+            buckets = createWeeklyBuckets(startDate, endDate, entityStates, fireEvents, collisionEvents, detonationEvents,
+                    dataPduEvents, actionRequestPduEvents, startResumePduEvents, setDataPduEvents,
+                    designatorPduEvents, electromagneticEmissionsPduEvents);
+        }
+        
+        return new TimeBucketAggregation(timeUnit, start, end, buckets);
+    }
+    
+    private List<TimeBucket> createHourlyBuckets(
+            LocalDate date,
+            List<EntityStateRecord> entityStates, List<FireEventRecord> fireEvents,
+            List<CollisionRecord> collisionEvents, List<DetonationRecord> detonationEvents,
+            List<DataPduRecord> dataPduEvents, List<ActionRequestPduRecord> actionRequestPduEvents,
+            List<StartResumePduRecord> startResumePduEvents, List<SetDataPduRecord> setDataPduEvents,
+            List<DesignatorPduRecord> designatorPduEvents, List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsPduEvents) {
+        
+        List<TimeBucket> buckets = new ArrayList<>();
+        
+        for (int hour = 0; hour < 24; hour++) {
+            LocalDateTime hourStart = date.atTime(hour, 0);
+            LocalDateTime hourEnd = date.atTime(hour, 59, 59);
+            
+            long hourStartDis = MetricsService.toDisAbsoluteTimestamp(hourStart.atZone(ZoneId.of("UTC")).toEpochSecond());
+            long hourEndDis = MetricsService.toDisAbsoluteTimestamp(hourEnd.atZone(ZoneId.of("UTC")).toEpochSecond());
+            
+            long entityCount = countRecordsInRange(entityStates, hourStartDis, hourEndDis);
+            long fireCount = countRecordsInRange(fireEvents, hourStartDis, hourEndDis);
+            long collisionCount = countRecordsInRange(collisionEvents, hourStartDis, hourEndDis);
+            long detonationCount = countRecordsInRange(detonationEvents, hourStartDis, hourEndDis);
+            long dataCount = countRecordsInRange(dataPduEvents, hourStartDis, hourEndDis);
+            long actionCount = countRecordsInRange(actionRequestPduEvents, hourStartDis, hourEndDis);
+            long startResumeCount = countRecordsInRange(startResumePduEvents, hourStartDis, hourEndDis);
+            long setDataCount = countRecordsInRange(setDataPduEvents, hourStartDis, hourEndDis);
+            long designatorCount = countRecordsInRange(designatorPduEvents, hourStartDis, hourEndDis);
+            long emCount = countRecordsInRange(electromagneticEmissionsPduEvents, hourStartDis, hourEndDis);
+            
+            buckets.add(new TimeBucket(hour, entityCount, fireCount, collisionCount, detonationCount,
+                    dataCount, actionCount, startResumeCount, setDataCount, designatorCount, emCount));
+        }
+        
+        return buckets;
+    }
+    
+    private List<TimeBucket> createDailyBuckets(
+            LocalDate startDate, LocalDate endDate,
+            List<EntityStateRecord> entityStates, List<FireEventRecord> fireEvents,
+            List<CollisionRecord> collisionEvents, List<DetonationRecord> detonationEvents,
+            List<DataPduRecord> dataPduEvents, List<ActionRequestPduRecord> actionRequestPduEvents,
+            List<StartResumePduRecord> startResumePduEvents, List<SetDataPduRecord> setDataPduEvents,
+            List<DesignatorPduRecord> designatorPduEvents, List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsPduEvents) {
+        
+        List<TimeBucket> buckets = new ArrayList<>();
+        
+        LocalDate currentDate = startDate;
+        while (!currentDate.isAfter(endDate)) {
+            LocalDateTime dayStart = currentDate.atStartOfDay();
+            LocalDateTime dayEnd = currentDate.atTime(LocalTime.MAX);
+            
+            long dayStartDis = MetricsService.toDisAbsoluteTimestamp(dayStart.atZone(ZoneId.of("UTC")).toEpochSecond());
+            long dayEndDis = MetricsService.toDisAbsoluteTimestamp(dayEnd.atZone(ZoneId.of("UTC")).toEpochSecond());
+            
+            long entityCount = countRecordsInRange(entityStates, dayStartDis, dayEndDis);
+            long fireCount = countRecordsInRange(fireEvents, dayStartDis, dayEndDis);
+            long collisionCount = countRecordsInRange(collisionEvents, dayStartDis, dayEndDis);
+            long detonationCount = countRecordsInRange(detonationEvents, dayStartDis, dayEndDis);
+            long dataCount = countRecordsInRange(dataPduEvents, dayStartDis, dayEndDis);
+            long actionCount = countRecordsInRange(actionRequestPduEvents, dayStartDis, dayEndDis);
+            long startResumeCount = countRecordsInRange(startResumePduEvents, dayStartDis, dayEndDis);
+            long setDataCount = countRecordsInRange(setDataPduEvents, dayStartDis, dayEndDis);
+            long designatorCount = countRecordsInRange(designatorPduEvents, dayStartDis, dayEndDis);
+            long emCount = countRecordsInRange(electromagneticEmissionsPduEvents, dayStartDis, dayEndDis);
+            
+            buckets.add(new TimeBucket(currentDate.toString(), entityCount, fireCount, collisionCount, detonationCount,
+                    dataCount, actionCount, startResumeCount, setDataCount, designatorCount, emCount));
+            
+            currentDate = currentDate.plusDays(1);
+        }
+        
+        return buckets;
+    }
+    
+    private List<TimeBucket> createWeeklyBuckets(
+            LocalDate startDate, LocalDate endDate,
+            List<EntityStateRecord> entityStates, List<FireEventRecord> fireEvents,
+            List<CollisionRecord> collisionEvents, List<DetonationRecord> detonationEvents,
+            List<DataPduRecord> dataPduEvents, List<ActionRequestPduRecord> actionRequestPduEvents,
+            List<StartResumePduRecord> startResumePduEvents, List<SetDataPduRecord> setDataPduEvents,
+            List<DesignatorPduRecord> designatorPduEvents, List<ElectromagneticEmissionsPduRecord> electromagneticEmissionsPduEvents) {
+        
+        List<TimeBucket> buckets = new ArrayList<>();
+        LocalDate currentWeekStart = startDate;
+        
+        // Create 4 weekly buckets
+        for (int week = 1; week <= 4; week++) {
+            LocalDate weekEnd = currentWeekStart.plusDays(6);
+            if (weekEnd.isAfter(endDate)) {
+                weekEnd = endDate;
+            }
+            
+            LocalDateTime weekStartTime = currentWeekStart.atStartOfDay();
+            LocalDateTime weekEndTime = weekEnd.atTime(LocalTime.MAX);
+            
+            long startDis = MetricsService.toDisAbsoluteTimestamp(weekStartTime.atZone(ZoneId.of("UTC")).toEpochSecond());
+            long endDis = MetricsService.toDisAbsoluteTimestamp(weekEndTime.atZone(ZoneId.of("UTC")).toEpochSecond());
+            
+            long entityCount = countRecordsInRange(entityStates, startDis, endDis);
+            long fireCount = countRecordsInRange(fireEvents, startDis, endDis);
+            long collisionCount = countRecordsInRange(collisionEvents, startDis, endDis);
+            long detonationCount = countRecordsInRange(detonationEvents, startDis, endDis);
+            long dataCount = countRecordsInRange(dataPduEvents, startDis, endDis);
+            long actionCount = countRecordsInRange(actionRequestPduEvents, startDis, endDis);
+            long startResumeCount = countRecordsInRange(startResumePduEvents, startDis, endDis);
+            long setDataCount = countRecordsInRange(setDataPduEvents, startDis, endDis);
+            long designatorCount = countRecordsInRange(designatorPduEvents, startDis, endDis);
+            long emCount = countRecordsInRange(electromagneticEmissionsPduEvents, startDis, endDis);
+            
+            String weekIdentifier = "Week " + week + " (" + currentWeekStart.toString() + " to " + weekEnd.toString() + ")";
+             buckets.add(new TimeBucket(weekIdentifier, true, entityCount, fireCount, collisionCount, detonationCount,
+                     dataCount, actionCount, startResumeCount, setDataCount, designatorCount, emCount));
+            
+            currentWeekStart = currentWeekStart.plusWeeks(1);
+            if (currentWeekStart.isAfter(endDate)) {
+                break;
+            }
+        }
+        
+        return buckets;
+    }
+    
+    private <T> long countRecordsInRange(List<T> records, long startDis, long endDis) {
+        if (records == null) return 0;
+        
+        return records.stream()
+                .mapToLong(record -> {
+                    long timestamp = getTimestampFromRecord(record);
+                    return (timestamp >= startDis && timestamp <= endDis) ? 1 : 0;
+                })
+                .sum();
+    }
+    
+    private long getTimestampFromRecord(Object record) {
+        if (record instanceof EntityStateRecord) {
+            return ((EntityStateRecord) record).getTimestamp();
+        } else if (record instanceof FireEventRecord) {
+            return ((FireEventRecord) record).getTimestamp();
+        } else if (record instanceof CollisionRecord) {
+            return ((CollisionRecord) record).getTimestamp();
+        } else if (record instanceof DetonationRecord) {
+            return ((DetonationRecord) record).getTimestamp();
+        } else if (record instanceof DataPduRecord) {
+            return ((DataPduRecord) record).getTimestamp();
+        } else if (record instanceof ActionRequestPduRecord) {
+            return ((ActionRequestPduRecord) record).getTimestamp();
+        } else if (record instanceof StartResumePduRecord) {
+            return ((StartResumePduRecord) record).getTimestamp();
+        } else if (record instanceof SetDataPduRecord) {
+            return ((SetDataPduRecord) record).getTimestamp();
+        } else if (record instanceof DesignatorPduRecord) {
+            return ((DesignatorPduRecord) record).getTimestamp();
+        } else if (record instanceof ElectromagneticEmissionsPduRecord) {
+            return ((ElectromagneticEmissionsPduRecord) record).getTimestamp();
+        }
+        return 0;
     }
 
     // --- NEW METRICS ENDPOINT using MetricsService ---
