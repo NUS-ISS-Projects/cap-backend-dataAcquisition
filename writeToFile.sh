@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# Demo
 # Ensure a directory is provided
 DIR="${1:-.}"
 OUTPUT_FILE="${2:-output.txt}"
